@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/myscript-api/:path*",
+      "destination": "https://cloud.myscript.com/:path*"
+    }
+  ]
+}
