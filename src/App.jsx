@@ -536,7 +536,7 @@ function ConversionToolbar() {
   useEffect(() => {
     function handleClickOutside(event) {
       if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target) &&
-          accountBtnRef.current && !accountBtnRef.current.contains(event.target)) {
+        accountBtnRef.current && !accountBtnRef.current.contains(event.target)) {
         setUserDropdownOpen(false);
       }
     }
@@ -552,7 +552,7 @@ function ConversionToolbar() {
   useEffect(() => {
     function handleClickOutside(event) {
       if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target) &&
-          colorBtnRef.current && !colorBtnRef.current.contains(event.target)) {
+        colorBtnRef.current && !colorBtnRef.current.contains(event.target)) {
         setBoardColorDropdownOpen(false);
       }
     }
@@ -1142,7 +1142,7 @@ function ConversionToolbar() {
             const extracted = matches.map(m => m.replace(/"text"\s*:\s*"/, '').replace(/"$/, '')).join(' ');
             if (extracted.trim()) return extracted.trim();
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -1208,7 +1208,7 @@ function ConversionToolbar() {
                 yArr.push(Math.round(pageY + pt.y));
               });
             }
-          } catch (e) {}
+          } catch (e) { }
           if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
         });
 
@@ -1523,7 +1523,7 @@ function ConversionToolbar() {
           title="Click to view QR code or click ✕ to disconnect"
         >
           <span>📱 Mobile Active: <strong>{formatMMSS(mobileTimeLeft)}</strong></span>
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); handleDisconnectMobileSession(); }}
             style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '50%', width: '20px', height: '20px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '4px' }}
             title="Disconnect 5m session"
@@ -1548,7 +1548,7 @@ function ConversionToolbar() {
         maxWidth: 'calc(100vw - 40px)', overflowX: 'auto',
         transition: 'background 0.3s ease, border 0.3s ease'
       }}>
-        
+
         {/* Toast Save Notification */}
         {saveNotification && (
           <div style={{ padding: '0 12px', height: '32px', background: '#0f172a', color: 'white', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
@@ -1666,7 +1666,7 @@ function ConversionToolbar() {
 
       {/* Board Background Color Palette Dropdown (Positioned Directly Below Color Button) */}
       {boardColorDropdownOpen && (
-        <div 
+        <div
           ref={colorDropdownRef}
           style={{
             position: 'fixed', top: `${colorMenuPos.top}px`, left: `${colorMenuPos.left}px`, zIndex: 3600,
@@ -1694,7 +1694,7 @@ function ConversionToolbar() {
 
       {/* Aesthetic Account Floating Dropdown Menu (Positioned Directly Below Account Logo) */}
       {userDropdownOpen && (
-        <div 
+        <div
           ref={accountDropdownRef}
           style={{
             position: 'fixed', top: `${accountMenuPos.top}px`, right: `${accountMenuPos.right}px`, zIndex: 3600,
@@ -1719,28 +1719,28 @@ function ConversionToolbar() {
               <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>👤</span> Guest Session
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Sign in to save and sync your whiteboards.</div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: '500' }}>Sign in not available in this version</div>
             </div>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <button
-              onClick={() => { setUserDropdownOpen(false); setBoardTitleInput(activeBoardTitle || ''); setSaveBoardModalOpen(true); }}
-              style={{ width: '100%', padding: '9px 12px', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled
+              style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'not-allowed', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.7 }}
             >
               💾 Save Progress
             </button>
 
             <button
-              onClick={() => { setUserDropdownOpen(false); setSavedBoardsModalOpen(true); }}
-              style={{ width: '100%', padding: '9px 12px', background: '#f8fafc', color: '#334155', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled
+              style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'not-allowed', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.7 }}
             >
               📂 My Saved Boards ({savedBoards.length})
             </button>
 
             <button
-              onClick={() => { setUserDropdownOpen(false); handleCreateNewBoard(); }}
-              style={{ width: '100%', padding: '9px 12px', background: '#f8fafc', color: '#334155', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}
+              disabled
+              style={{ width: '100%', padding: '9px 12px', background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1', borderRadius: '12px', cursor: 'not-allowed', textAlign: 'left', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.7 }}
             >
               ➕ New Blank Board
             </button>
@@ -1749,14 +1749,14 @@ function ConversionToolbar() {
           {!currentUser ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
               <button
-                onClick={() => { setUserDropdownOpen(false); setAuthMode('login'); setAuthModalOpen(true); }}
-                style={{ width: '100%', padding: '10px', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(59,130,246,0.35)' }}
+                disabled
+                style={{ width: '100%', padding: '10px', background: '#94a3b8', color: '#ffffff', border: 'none', borderRadius: '12px', fontSize: '12px', fontWeight: '800', cursor: 'not-allowed', opacity: 0.7 }}
               >
                 Sign In
               </button>
               <button
-                onClick={() => { setUserDropdownOpen(false); setAuthMode('register'); setAuthModalOpen(true); }}
-                style={{ width: '100%', padding: '10px', background: '#ffffff', color: '#1e293b', border: '1px solid #cbd5e1', borderRadius: '12px', fontSize: '12px', fontWeight: '800', cursor: 'pointer' }}
+                disabled
+                style={{ width: '100%', padding: '10px', background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1', borderRadius: '12px', fontSize: '12px', fontWeight: '800', cursor: 'not-allowed', opacity: 0.7 }}
               >
                 Create Account
               </button>
