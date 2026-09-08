@@ -1907,7 +1907,7 @@ function ConversionToolbar() {
                     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
                     backdropFilter: 'blur(10px)', transition: 'all 0.15s ease'
                   }}
-                  title="Expand to Fullscreentest"
+                  title="Expand to Fullscreen"
                 >
                   ⛶ Fullscreen
                 </button>
