@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Tldraw, useEditor, AssetRecordType, createShapeId, toRichText, getSnapshot, loadSnapshot } from 'tldraw';
+import { Tldraw, useEditor, AssetRecordType, createShapeId, toRichText, getSnapshot, loadSnapshot, DefaultColorStyle, DefaultSizeStyle, DefaultDashStyle, DefaultFillStyle } from 'tldraw';
 import 'tldraw/tldraw.css';
 import './App.css';
 import { jsPDF } from 'jspdf';
@@ -362,6 +362,126 @@ function ConversionToolbar() {
       console.error("Set tool error:", e);
     }
   };
+
+  // Integrated Style Panel (Picture 1) States & Handlers
+  const [stylePanelOpen, setStylePanelOpen] = useState(false);
+  const [stylePanelPos, setStylePanelPos] = useState({ top: 60, left: 16, right: 'auto' });
+  const [activePenColor, setActivePenColor] = useState('black');
+  const [activePenSize, setActivePenSize] = useState('m');
+  const [activePenDash, setActivePenDash] = useState('draw');
+  const [activePenFill, setActivePenFill] = useState('none');
+  const styleBtnRef = useRef(null);
+  const stylePanelRef = useRef(null);
+
+  const tldrawColors = [
+    { id: 'black', hex: '#1e293b' },
+    { id: 'grey', hex: '#94a3b8' },
+    { id: 'light-violet', hex: '#c084fc' },
+    { id: 'violet', hex: '#a855f7' },
+    { id: 'blue', hex: '#3b82f6' },
+    { id: 'light-blue', hex: '#38bdf8' },
+    { id: 'yellow', hex: '#eab308' },
+    { id: 'orange', hex: '#f97316' },
+    { id: 'green', hex: '#22c55e' },
+    { id: 'light-green', hex: '#4ade80' },
+    { id: 'light-red', hex: '#f87171' },
+    { id: 'red', hex: '#ef4444' }
+  ];
+
+  const tldrawSizes = [
+    { id: 's', label: 'S' },
+    { id: 'm', label: 'M' },
+    { id: 'l', label: 'L' },
+    { id: 'xl', label: 'XL' }
+  ];
+
+  const tldrawDashes = [
+    { id: 'draw', label: 'Draw' },
+    { id: 'solid', label: 'Solid' },
+    { id: 'dashed', label: 'Dash' },
+    { id: 'dotted', label: 'Dot' }
+  ];
+
+  const tldrawFills = [
+    { id: 'none', label: 'None' },
+    { id: 'semi', label: 'Semi' },
+    { id: 'solid', label: 'Solid' },
+    { id: 'pattern', label: 'Pat' }
+  ];
+
+  const handleSetPenColor = (colorId) => {
+    setActivePenColor(colorId);
+    if (!editor) return;
+    try {
+      editor.setStyleForNextShapes(DefaultColorStyle, colorId);
+      if (editor.getSelectedShapes().length > 0) {
+        editor.setStyleForSelectedShapes(DefaultColorStyle, colorId);
+      }
+    } catch (e) { }
+  };
+
+  const handleSetPenSize = (sizeId) => {
+    setActivePenSize(sizeId);
+    if (!editor) return;
+    try {
+      editor.setStyleForNextShapes(DefaultSizeStyle, sizeId);
+      if (editor.getSelectedShapes().length > 0) {
+        editor.setStyleForSelectedShapes(DefaultSizeStyle, sizeId);
+      }
+    } catch (e) { }
+  };
+
+  const handleSetPenDash = (dashId) => {
+    setActivePenDash(dashId);
+    if (!editor) return;
+    try {
+      editor.setStyleForNextShapes(DefaultDashStyle, dashId);
+      if (editor.getSelectedShapes().length > 0) {
+        editor.setStyleForSelectedShapes(DefaultDashStyle, dashId);
+      }
+    } catch (e) { }
+  };
+
+  const handleSetPenFill = (fillId) => {
+    setActivePenFill(fillId);
+    if (!editor) return;
+    try {
+      editor.setStyleForNextShapes(DefaultFillStyle, fillId);
+      if (editor.getSelectedShapes().length > 0) {
+        editor.setStyleForSelectedShapes(DefaultFillStyle, fillId);
+      }
+    } catch (e) { }
+  };
+
+  const handleToggleStylePanel = () => {
+    if (!stylePanelOpen && styleBtnRef.current) {
+      const rect = styleBtnRef.current.getBoundingClientRect();
+      if (toolbarDock === 'left') {
+        setStylePanelPos({ top: Math.min(rect.top, window.innerHeight - 380), left: Math.round(rect.right + 12), right: 'auto' });
+      } else if (toolbarDock === 'right') {
+        setStylePanelPos({ top: Math.min(rect.top, window.innerHeight - 380), right: Math.round(window.innerWidth - rect.left + 12), left: 'auto' });
+      } else {
+        setStylePanelPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left), right: 'auto' });
+      }
+    }
+    setStylePanelOpen(!stylePanelOpen);
+  };
+
+  // Close Style panel on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (stylePanelRef.current && !stylePanelRef.current.contains(event.target) &&
+        styleBtnRef.current && !styleBtnRef.current.contains(event.target)) {
+        setStylePanelOpen(false);
+      }
+    }
+    if (stylePanelOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [stylePanelOpen]);
 
   // ViewBoard Side Docking Position State ('left' | 'top' | 'right')
   const [toolbarDock, setToolbarDock] = useState(() => {
@@ -1807,6 +1927,27 @@ function ConversionToolbar() {
           >
             🔲
           </button>
+
+          {/* Style & Palette Swatch Button (Picture 1 Integration) */}
+          <button
+            ref={styleBtnRef}
+            onClick={handleToggleStylePanel}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: stylePanelOpen ? '#f1f5f9' : '#ffffff',
+              border: stylePanelOpen ? '2px solid #3b82f6' : '1px solid #cbd5e1',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: stylePanelOpen ? '0 0 10px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease', position: 'relative'
+            }}
+            title="Pen Style, Colors & Stroke Size (Picture 1 Options)"
+          >
+            <span style={{
+              width: '16px', height: '16px', borderRadius: '50%',
+              background: tldrawColors.find(c => c.id === activePenColor)?.hex || '#1e293b',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.9)'
+            }} />
+          </button>
         </div>
 
         {/* Divider */}
@@ -1921,6 +2062,130 @@ function ConversionToolbar() {
           📌 {toolbarDock === 'left' ? 'Dock: Left' : toolbarDock === 'right' ? 'Dock: Right' : 'Dock: Top'}
         </button>
       </div>
+
+      {/* Integrated Style & Color Palette Popover (Picture 1 Match) */}
+      {stylePanelOpen && (
+        <div
+          ref={stylePanelRef}
+          style={{
+            position: 'fixed',
+            top: `${stylePanelPos.top}px`,
+            ...(stylePanelPos.left !== 'auto' ? { left: `${stylePanelPos.left}px` } : {}),
+            ...(stylePanelPos.right !== 'auto' ? { right: `${stylePanelPos.right}px` } : {}),
+            zIndex: 9999999,
+            width: '210px',
+            background: 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(226, 232, 240, 0.95)',
+            boxShadow: '0 20px 45px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.06)',
+            padding: '16px',
+            userSelect: 'none'
+          }}
+        >
+          {/* 1. Color Palette Grid (12 Colors in 3x4 Grid matching Picture 1) */}
+          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+            Pen Color
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '14px', justifyItems: 'center', alignItems: 'center' }}>
+            {tldrawColors.map(c => {
+              const isSelected = activePenColor === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => handleSetPenColor(c.id)}
+                  style={{
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: c.hex, border: isSelected ? '3px solid #ffffff' : '1px solid rgba(0,0,0,0.1)',
+                    boxShadow: isSelected ? '0 0 0 2.5px #3b82f6, 0 3px 8px rgba(0,0,0,0.2)' : 'none',
+                    cursor: 'pointer', transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={c.id}
+                />
+              );
+            })}
+          </div>
+
+          <div style={{ width: '100%', height: '1px', background: '#f1f5f9', margin: '10px 0' }} />
+
+          {/* 2. Stroke Size Selector (S, M, L, XL pills matching Picture 1) */}
+          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px' }}>
+            Stroke Size
+          </div>
+          <div style={{ display: 'flex', gap: '6px', justifyContent: 'space-between', marginBottom: '12px' }}>
+            {tldrawSizes.map(s => {
+              const isSelected = activePenSize === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => handleSetPenSize(s.id)}
+                  style={{
+                    flex: 1, padding: '6px 0', fontSize: '12px', fontWeight: '800', borderRadius: '10px',
+                    background: isSelected ? '#e2e8f0' : '#f8fafc',
+                    color: isSelected ? '#0f172a' : '#64748b',
+                    border: isSelected ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
+                    boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    cursor: 'pointer', transition: 'all 0.15s ease'
+                  }}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 3. Stroke Dash Style Grid */}
+          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px' }}>
+            Line Dash
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '12px' }}>
+            {tldrawDashes.map(d => {
+              const isSelected = activePenDash === d.id;
+              return (
+                <button
+                  key={d.id}
+                  onClick={() => handleSetPenDash(d.id)}
+                  style={{
+                    padding: '6px 0', fontSize: '10px', fontWeight: '700', borderRadius: '8px',
+                    background: isSelected ? '#e2e8f0' : '#f8fafc',
+                    color: isSelected ? '#0f172a' : '#64748b',
+                    border: isSelected ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
+                    cursor: 'pointer', transition: 'all 0.15s ease'
+                  }}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 4. Stroke Fill Style Grid */}
+          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px' }}>
+            Shape Fill
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+            {tldrawFills.map(f => {
+              const isSelected = activePenFill === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => handleSetPenFill(f.id)}
+                  style={{
+                    padding: '6px 0', fontSize: '10px', fontWeight: '700', borderRadius: '8px',
+                    background: isSelected ? '#e2e8f0' : '#f8fafc',
+                    color: isSelected ? '#0f172a' : '#64748b',
+                    border: isSelected ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
+                    cursor: 'pointer', transition: 'all 0.15s ease'
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Board Background Color Palette Dropdown (Positioned Directly Below Color Button) */}
       {boardColorDropdownOpen && (
