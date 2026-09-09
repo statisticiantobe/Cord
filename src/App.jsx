@@ -2752,8 +2752,8 @@ function ConversionToolbar() {
 
       {/* Highly Aesthetic Mobile Connection & QR Modal */}
       {mobileModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#0f172a', color: 'white', borderRadius: '28px', padding: '30px', width: '420px', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(56, 189, 248, 0.15)', position: 'relative', textAlign: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', zIndex: 4000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '75px', paddingBottom: '24px', overflowY: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ background: '#0f172a', color: 'white', borderRadius: '28px', padding: '30px', width: '420px', maxWidth: '92vw', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(56, 189, 248, 0.15)', position: 'relative', textAlign: 'center', maxHeight: 'calc(100vh - 95px)', overflowY: 'auto' }}>
             <button onClick={() => setMobileModalOpen(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: 'rgba(255,255,255,0.1)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
 
             <div style={{ fontSize: '32px', marginBottom: '4px' }}>📲</div>
@@ -2815,8 +2815,8 @@ function ConversionToolbar() {
 
       {/* User Auth Modal */}
       {authModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', width: '380px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '75px', paddingBottom: '24px', overflowY: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '28px', width: '380px', maxWidth: '92vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left', maxHeight: 'calc(100vh - 95px)', overflowY: 'auto' }}>
             <button onClick={() => setAuthModalOpen(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
 
             <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', marginBottom: '20px' }}>
@@ -2868,8 +2868,8 @@ function ConversionToolbar() {
 
       {/* Save Board Progress Modal */}
       {saveBoardModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '24px', width: '380px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '75px', paddingBottom: '24px', overflowY: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '24px', width: '380px', maxWidth: '92vw', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left', maxHeight: 'calc(100vh - 95px)', overflowY: 'auto' }}>
             <button onClick={() => setSaveBoardModalOpen(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
 
             <h3 style={{ margin: '0 0 6px', fontSize: '18px', color: '#1e293b', fontWeight: '800' }}>💾 Save Whiteboard Progress</h3>
@@ -2890,8 +2890,8 @@ function ConversionToolbar() {
 
       {/* Saved Boards Library Modal */}
       {savedBoardsModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', borderRadius: '24px', padding: '24px', width: '560px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(10px)', zIndex: 3500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '75px', paddingBottom: '24px', overflowY: 'auto', boxSizing: 'border-box' }}>
+          <div style={{ background: 'white', borderRadius: '24px', padding: '24px', width: '560px', maxWidth: '92vw', maxHeight: 'calc(100vh - 95px)', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', textAlign: 'left' }}>
             <button onClick={() => setSavedBoardsModalOpen(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
 
             <div style={{ marginBottom: '14px' }}>
