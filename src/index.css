@@ -25,3 +25,22 @@ body {
   padding: 0;
   overflow: hidden;
 }
+
+/* TLDraw UI ViewBoard Offsets to prevent overlap */
+.tlui-layout__top {
+  top: 12px !important;
+  left: 12px !important;
+  z-index: 999900 !important;
+}
+
+.tlui-layout__bottom {
+  bottom: 28px !important;
+}
+
+.tlui-toolbar {
+  bottom: 28px !important;
+}
+
+.tlui-style-panel {
+  bottom: 85px !important;
+}

@@ -457,11 +457,11 @@ function ConversionToolbar() {
     if (!stylePanelOpen && styleBtnRef.current) {
       const rect = styleBtnRef.current.getBoundingClientRect();
       if (toolbarDock === 'left') {
-        setStylePanelPos({ top: Math.min(rect.top, window.innerHeight - 380), left: Math.round(rect.right + 12), right: 'auto' });
+        setStylePanelPos({ top: Math.max(16, Math.min(rect.top - 40, window.innerHeight - 400)), left: Math.round(rect.right + 12), right: 'auto' });
       } else if (toolbarDock === 'right') {
-        setStylePanelPos({ top: Math.min(rect.top, window.innerHeight - 380), right: Math.round(window.innerWidth - rect.left + 12), left: 'auto' });
+        setStylePanelPos({ top: Math.max(16, Math.min(rect.top - 40, window.innerHeight - 400)), right: Math.round(window.innerWidth - rect.left + 12), left: 'auto' });
       } else {
-        setStylePanelPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left), right: 'auto' });
+        setStylePanelPos({ top: Math.round(rect.bottom + 12), left: Math.max(16, Math.min(rect.left - 60, window.innerWidth - 240)), right: 'auto' });
       }
     }
     setStylePanelOpen(!stylePanelOpen);
@@ -1770,7 +1770,7 @@ function ConversionToolbar() {
         position: 'fixed',
         ...(toolbarDock === 'left' ? { top: '50%', left: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
           : toolbarDock === 'right' ? { top: '50%', right: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
-          : { top: '16px', left: '50%', transform: 'translateX(-50%)', flexDirection: 'row', padding: '7px 14px', borderRadius: '9999px', maxWidth: 'calc(100vw - 40px)', overflowX: 'auto' }),
+          : { top: '12px', left: 'calc(50% + 75px)', transform: 'translateX(-50%)', flexDirection: 'row', padding: '7px 14px', borderRadius: '9999px', maxWidth: 'calc(100vw - 220px)', overflowX: 'auto' }),
         zIndex: 999999,
         display: 'flex', alignItems: 'center', gap: '8px',
         background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.94)' : 'rgba(255, 255, 255, 0.75)',
