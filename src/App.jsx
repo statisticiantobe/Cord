@@ -335,6 +335,34 @@ function ConversionToolbar() {
   const [boardColor, setBoardColor] = useState('default');
   const [boardColorDropdownOpen, setBoardColorDropdownOpen] = useState(false);
 
+  // Active TLDraw Drawing Tool State
+  const [activeTool, setActiveTool] = useState('select');
+
+  useEffect(() => {
+    if (!editor) return;
+    const updateActiveTool = () => {
+      try {
+        if (editor.currentTool && editor.currentTool.id) {
+          setActiveTool(editor.currentTool.id);
+        }
+      } catch (e) { }
+    };
+    updateActiveTool();
+    const unlisten = editor.store.listen(updateActiveTool);
+    return () => {
+      try { unlisten(); } catch (e) { }
+    };
+  }, [editor]);
+
+  const selectDrawingTool = (toolId) => {
+    if (!editor) return;
+    try {
+      editor.setCurrentTool(toolId);
+    } catch (e) {
+      console.error("Set tool error:", e);
+    }
+  };
+
   // ViewBoard Side Docking Position State ('left' | 'top' | 'right')
   const [toolbarDock, setToolbarDock] = useState(() => {
     try {
@@ -1641,6 +1669,152 @@ function ConversionToolbar() {
             {saveNotification}
           </div>
         )}
+
+        {/* INTEGRATED DRAWING TOOLSET (Pencil, Hand, Eraser, Shapes, Select, Arrow, Text, Sticky) */}
+        <div style={{ display: 'flex', flexDirection: toolbarDock === 'top' ? 'row' : 'column', gap: '5px', alignItems: 'center' }}>
+          <button
+            onClick={() => selectDrawingTool('select')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'select' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'select' ? '#ffffff' : '#334155',
+              border: activeTool === 'select' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'select' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Select Tool (↖)"
+          >
+            ↖
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('hand')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'hand' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'hand' ? '#ffffff' : '#334155',
+              border: activeTool === 'hand' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'hand' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Move / Pan Tool (✋)"
+          >
+            ✋
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('draw')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'draw' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'draw' ? '#ffffff' : '#334155',
+              border: activeTool === 'draw' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'draw' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Pencil / Draw Tool (✏️)"
+          >
+            ✏️
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('eraser')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'eraser' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'eraser' ? '#ffffff' : '#334155',
+              border: activeTool === 'eraser' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'eraser' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Eraser Tool (🧹)"
+          >
+            🧹
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('arrow')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'arrow' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'arrow' ? '#ffffff' : '#334155',
+              border: activeTool === 'arrow' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'arrow' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Arrow Tool (↗)"
+          >
+            ↗
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('text')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'text' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'text' ? '#ffffff' : '#334155',
+              border: activeTool === 'text' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'text' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Text Tool (T)"
+          >
+            T
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('note')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: activeTool === 'note' ? '#3b82f6' : '#ffffff',
+              color: activeTool === 'note' ? '#ffffff' : '#334155',
+              border: activeTool === 'note' ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: activeTool === 'note' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Sticky Note Tool (📄)"
+          >
+            📄
+          </button>
+
+          <button
+            onClick={() => selectDrawingTool('geo')}
+            style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: (activeTool === 'geo' || activeTool === 'rectangle') ? '#3b82f6' : '#ffffff',
+              color: (activeTool === 'geo' || activeTool === 'rectangle') ? '#ffffff' : '#334155',
+              border: (activeTool === 'geo' || activeTool === 'rectangle') ? 'none' : '1px solid #cbd5e1',
+              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: (activeTool === 'geo' || activeTool === 'rectangle') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+            title="Rectangle / Shapes Tool (🔲)"
+          >
+            🔲
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          width: toolbarDock === 'top' ? '1px' : '26px',
+          height: toolbarDock === 'top' ? '26px' : '1px',
+          background: '#cbd5e1', margin: '2px 0'
+        }} />
 
         {/* 1. Mobile Connection Button */}
         <button
