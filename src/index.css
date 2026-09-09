@@ -41,6 +41,8 @@ body {
   bottom: 28px !important;
 }
 
-.tlui-style-panel {
-  bottom: 85px !important;
+/* Hide TLDraw's default duplicate style panel and popovers */
+.tlui-style-panel,
+.tlui-popover {
+  display: none !important;
 }

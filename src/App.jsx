@@ -2052,14 +2052,14 @@ function ConversionToolbar() {
         <button
           onClick={handleCycleDock}
           style={{
-            height: '32px', padding: '0 10px', fontSize: '11px', fontWeight: '800', cursor: 'pointer',
-            borderRadius: '9999px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
-            display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap',
+            width: '32px', height: '32px', borderRadius: '50%', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
+            border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             boxShadow: '0 2px 6px rgba(0,0,0,0.06)', transition: 'all 0.15s ease'
           }}
-          title="Change ViewBoard Toolbar Dock: Left, Top, or Right"
+          title={`Cycle Toolbar Dock: Left, Top, or Right (Current: ${toolbarDock.toUpperCase()})`}
         >
-          📌 {toolbarDock === 'left' ? 'Dock: Left' : toolbarDock === 'right' ? 'Dock: Right' : 'Dock: Top'}
+          📌
         </button>
       </div>
 
