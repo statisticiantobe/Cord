@@ -1716,7 +1716,7 @@ function ConversionToolbar() {
             </div>
           ) : (
             <div style={{ padding: '4px 6px 12px', borderBottom: '1px solid #f1f5f9', marginBottom: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px', zIndex: 99999 }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>👤</span> Guest Session
               </div>
               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: '500' }}>Sign in not available in this version</div>
