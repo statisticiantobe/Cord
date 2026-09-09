@@ -868,9 +868,36 @@ function ConversionToolbar() {
     }
   };
 
-  // Poll Local HTTP API continuously for 5 minutes (EVEN IF MODAL IS CLOSED!)
+  // Poll Local HTTP API + Listen to BroadcastChannel & LocalStorage continuously for 5 minutes
   useEffect(() => {
     if (!currentSessionToken || !mobileSessionActive || mobileTimeLeft <= 0) return;
+
+    let bc;
+    try {
+      if ('BroadcastChannel' in window) {
+        bc = new BroadcastChannel('vb_channel_' + currentSessionToken);
+        bc.onmessage = (event) => {
+          if (event.data && event.data.type === 'snapshot' && event.data.dataUrl) {
+            setIsConnected(true);
+            addPhotoToCanvas(event.data.dataUrl);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleStorageChange = (e) => {
+      if (e.key === 'vb_photo_' + currentSessionToken && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.dataUrl) {
+            setIsConnected(true);
+            addPhotoToCanvas(parsed.dataUrl);
+            localStorage.removeItem('vb_photo_' + currentSessionToken);
+          }
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
 
     const pollInterval = setInterval(async () => {
       try {
@@ -887,7 +914,11 @@ function ConversionToolbar() {
       } catch (e) { }
     }, 150);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      if (bc) try { bc.close(); } catch (e) {}
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(pollInterval);
+    };
   }, [currentSessionToken, mobileSessionActive, mobileTimeLeft, editor]);
 
   useEffect(() => {
@@ -1642,8 +1673,7 @@ function ConversionToolbar() {
   const updateQrLink = async (token, hostVal) => {
     let targetHost = (hostVal || '').trim().replace(/^https?:\/\//, '');
     if (!targetHost) {
-      const portStr = window.location.port ? `:${window.location.port}` : '';
-      targetHost = `192.168.103.96${portStr}`;
+      targetHost = window.location.host;
     }
     const proto = window.location.protocol;
     const generatedUrl = `${proto}//${targetHost}/?mobileCam=true&session=${token}`;
@@ -1669,8 +1699,7 @@ function ConversionToolbar() {
       setMobileTimeLeft(300); // 5-minute window
     }
 
-    const portStr = window.location.port ? `:${window.location.port}` : '';
-    const initialHost = `192.168.103.96${portStr}`;
+    const initialHost = window.location.host;
     setCustomHost(initialHost);
     updateQrLink(sessionToken, initialHost);
     initWebRTCReceiver(sessionToken);
@@ -2750,15 +2779,20 @@ function ConversionToolbar() {
               {isConnected ? '🟢 Mobile Device Connected!' : '🔴 Waiting for Mobile Device Scan...'}
             </div>
 
-            {/* Computer Local IP Input */}
+            {/* Computer Host / IP Input */}
             <div style={{ marginBottom: '16px', textAlign: 'left', background: 'rgba(30, 41, 59, 0.6)', padding: '10px 14px', borderRadius: '12px', border: '1px solid #334155' }}>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Computer Local IP Host</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Host Domain / Local IP</label>
               <input
                 type="text"
                 value={customHost}
                 onChange={(e) => { setCustomHost(e.target.value); updateQrLink(currentSessionToken, e.target.value); }}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #475569', background: '#0f172a', color: '#38bdf8', fontSize: '12px', fontWeight: '800', outline: 'none', boxSizing: 'border-box' }}
               />
+              <span style={{ fontSize: '10px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                  ? "💡 If testing on local Wi-Fi, change 'localhost' to your PC's IP (e.g. 192.168.1.5:5175)."
+                  : "🟢 Auto-configured for live site access."}
+              </span>
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
