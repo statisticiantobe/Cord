@@ -368,6 +368,7 @@ function ConversionToolbar() {
   const [stylePanelPos, setStylePanelPos] = useState({ top: 60, left: 16, right: 'auto' });
   const [activePenColor, setActivePenColor] = useState('black');
   const [activePenSize, setActivePenSize] = useState('m');
+  const [strokeSliderValue, setStrokeSliderValue] = useState(38);
   const [activePenDash, setActivePenDash] = useState('draw');
   const [activePenFill, setActivePenFill] = useState('none');
   const styleBtnRef = useRef(null);
@@ -422,6 +423,28 @@ function ConversionToolbar() {
 
   const handleSetPenSize = (sizeId) => {
     setActivePenSize(sizeId);
+    const sliderVal = sizeId === 's' ? 15 : sizeId === 'm' ? 38 : sizeId === 'l' ? 63 : 88;
+    setStrokeSliderValue(sliderVal);
+    if (!editor) return;
+    try {
+      editor.setStyleForNextShapes(DefaultSizeStyle, sizeId);
+      if (editor.getSelectedShapes().length > 0) {
+        editor.setStyleForSelectedShapes(DefaultSizeStyle, sizeId);
+      }
+    } catch (e) { }
+  };
+
+  const handleStrokeSliderChange = (val) => {
+    setStrokeSliderValue(val);
+    let sizeId = 'm';
+    if (val <= 25) sizeId = 's';
+    else if (val <= 50) sizeId = 'm';
+    else if (val <= 75) sizeId = 'l';
+    else sizeId = 'xl';
+
+    if (sizeId !== activePenSize) {
+      setActivePenSize(sizeId);
+    }
     if (!editor) return;
     try {
       editor.setStyleForNextShapes(DefaultSizeStyle, sizeId);
@@ -456,13 +479,7 @@ function ConversionToolbar() {
   const handleToggleStylePanel = () => {
     if (!stylePanelOpen && styleBtnRef.current) {
       const rect = styleBtnRef.current.getBoundingClientRect();
-      if (toolbarDock === 'left') {
-        setStylePanelPos({ top: Math.max(16, Math.min(rect.top - 40, window.innerHeight - 400)), left: Math.round(rect.right + 12), right: 'auto' });
-      } else if (toolbarDock === 'right') {
-        setStylePanelPos({ top: Math.max(16, Math.min(rect.top - 40, window.innerHeight - 400)), right: Math.round(window.innerWidth - rect.left + 12), left: 'auto' });
-      } else {
-        setStylePanelPos({ top: Math.round(rect.bottom + 12), left: Math.max(16, Math.min(rect.left - 60, window.innerWidth - 240)), right: 'auto' });
-      }
+      setStylePanelPos({ top: Math.round(rect.bottom + 12), left: Math.max(16, Math.min(rect.left - 60, window.innerWidth - 240)), right: 'auto' });
     }
     setStylePanelOpen(!stylePanelOpen);
   };
@@ -482,20 +499,6 @@ function ConversionToolbar() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [stylePanelOpen]);
-
-  // ViewBoard Side Docking Position State ('left' | 'top' | 'right')
-  const [toolbarDock, setToolbarDock] = useState(() => {
-    try {
-      return localStorage.getItem('viewboard_dock') || 'left';
-    } catch { return 'left'; }
-  });
-
-  const handleCycleDock = () => {
-    const next = toolbarDock === 'left' ? 'top' : toolbarDock === 'top' ? 'right' : 'left';
-    setToolbarDock(next);
-    try { localStorage.setItem('viewboard_dock', next); } catch (e) { }
-    showNotification(`📌 Docked to ${next.toUpperCase()}`);
-  };
 
   // 3-Stage Clock Widget States
   const [clockStage, setClockStage] = useState('badge');
@@ -722,13 +725,7 @@ function ConversionToolbar() {
   const handleToggleUserDropdown = () => {
     if (!userDropdownOpen && accountBtnRef.current) {
       const rect = accountBtnRef.current.getBoundingClientRect();
-      if (toolbarDock === 'left') {
-        setAccountMenuPos({ top: Math.min(rect.top, window.innerHeight - 340), left: Math.round(rect.right + 12) });
-      } else if (toolbarDock === 'right') {
-        setAccountMenuPos({ top: Math.min(rect.top, window.innerHeight - 340), right: Math.round(window.innerWidth - rect.left + 12) });
-      } else {
-        setAccountMenuPos({ top: Math.round(rect.bottom + 8), right: Math.max(12, Math.round(window.innerWidth - rect.right)) });
-      }
+      setAccountMenuPos({ top: Math.round(rect.bottom + 8), right: Math.max(12, Math.round(window.innerWidth - rect.right)) });
     }
     setUserDropdownOpen(!userDropdownOpen);
   };
@@ -738,13 +735,7 @@ function ConversionToolbar() {
       refreshNotesFromBoard();
       if (takeawayBtnRef.current) {
         const rect = takeawayBtnRef.current.getBoundingClientRect();
-        if (toolbarDock === 'left') {
-          setTakeawayMenuPos({ top: Math.min(rect.top, window.innerHeight - 360), left: Math.round(rect.right + 12) });
-        } else if (toolbarDock === 'right') {
-          setTakeawayMenuPos({ top: Math.min(rect.top, window.innerHeight - 360), left: Math.max(12, Math.round(rect.left - 340)) });
-        } else {
-          setTakeawayMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
-        }
+        setTakeawayMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
       }
     }
     setDropdownOpen(!dropdownOpen);
@@ -753,13 +744,7 @@ function ConversionToolbar() {
   const handleToggleColorDropdown = () => {
     if (!boardColorDropdownOpen && colorBtnRef.current) {
       const rect = colorBtnRef.current.getBoundingClientRect();
-      if (toolbarDock === 'left') {
-        setColorMenuPos({ top: Math.min(rect.top, window.innerHeight - 180), left: Math.round(rect.right + 12) });
-      } else if (toolbarDock === 'right') {
-        setColorMenuPos({ top: Math.min(rect.top, window.innerHeight - 180), left: Math.max(12, Math.round(rect.left - 150)) });
-      } else {
-        setColorMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
-      }
+      setColorMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
     }
     setBoardColorDropdownOpen(!boardColorDropdownOpen);
   };
@@ -1765,20 +1750,25 @@ function ConversionToolbar() {
         </div>
       )}
 
-      {/* Main Top Control Toolbar (Aesthetic Frosted Glassmorphism with Light Grey Shade on White Board) */}
+      {/* Main Control Toolbar (Permanent Top Header Bar) */}
       <div style={{
         position: 'fixed',
-        ...(toolbarDock === 'left' ? { top: '50%', left: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
-          : toolbarDock === 'right' ? { top: '50%', right: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
-          : { top: '12px', left: 'calc(50% + 75px)', transform: 'translateX(-50%)', flexDirection: 'row', padding: '7px 14px', borderRadius: '9999px', maxWidth: 'calc(100vw - 220px)', overflowX: 'auto' }),
+        top: '12px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        flexDirection: 'row',
+        padding: '7px 14px',
+        borderRadius: '9999px',
+        maxWidth: 'calc(100vw - 32px)',
+        overflowX: 'auto',
         zIndex: 999999,
-        display: 'flex', alignItems: 'center', gap: '8px',
-        background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.94)' : 'rgba(255, 255, 255, 0.75)',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.95)' : 'rgba(255, 255, 255, 0.82)',
         backdropFilter: 'blur(24px) saturate(200%)',
         WebkitBackdropFilter: 'blur(24px) saturate(200%)',
         border: boardColor === 'default' ? '1px solid rgba(203, 213, 225, 0.9)' : '1px solid rgba(255, 255, 255, 0.8)',
         boxShadow: boardColor === 'default'
-          ? '0 10px 30px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(0,0,0,0.04)'
+          ? '0 12px 35px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(0,0,0,0.04)'
           : '0 12px 35px rgba(31, 38, 135, 0.12), 0 2px 10px rgba(255, 255, 255, 0.6) inset, 0 1px 3px rgba(0,0,0,0.05)',
         transition: 'all 0.3s ease'
       }}>
@@ -1790,277 +1780,331 @@ function ConversionToolbar() {
           </div>
         )}
 
-        {/* INTEGRATED DRAWING TOOLSET (Pencil, Hand, Eraser, Shapes, Select, Arrow, Text, Sticky) */}
-        <div style={{ display: 'flex', flexDirection: toolbarDock === 'top' ? 'row' : 'column', gap: '5px', alignItems: 'center' }}>
+        {/* INTEGRATED DRAWING TOOLSET WITH UNIFORM SIZE */}
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '6px', width: 'auto', alignItems: 'center' }}>
+          {/* Select Tool */}
           <button
             onClick={() => selectDrawingTool('select')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'select' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'select' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'select' ? '#ffffff' : '#334155',
               border: activeTool === 'select' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'select' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Select Tool (↖)"
           >
-            ↖
+            <span style={{ fontSize: '13px' }}>↖</span>
           </button>
 
+          {/* Move / Pan Tool */}
           <button
             onClick={() => selectDrawingTool('hand')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'hand' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'hand' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'hand' ? '#ffffff' : '#334155',
               border: activeTool === 'hand' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'hand' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Move / Pan Tool (✋)"
           >
-            ✋
+            <span style={{ fontSize: '13px' }}>✋</span>
           </button>
 
+          {/* Pen Tool */}
           <button
             onClick={() => selectDrawingTool('draw')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'draw' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'draw' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'draw' ? '#ffffff' : '#334155',
               border: activeTool === 'draw' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'draw' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Pencil / Draw Tool (✏️)"
           >
-            ✏️
+            <span style={{ fontSize: '13px' }}>✏️</span>
           </button>
 
+          {/* Eraser Tool */}
           <button
             onClick={() => selectDrawingTool('eraser')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'eraser' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'eraser' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'eraser' ? '#ffffff' : '#334155',
               border: activeTool === 'eraser' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'eraser' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Eraser Tool (🧹)"
           >
-            🧹
+            <span style={{ fontSize: '13px' }}>🧹</span>
           </button>
 
+          {/* Arrow Tool */}
           <button
             onClick={() => selectDrawingTool('arrow')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'arrow' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'arrow' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'arrow' ? '#ffffff' : '#334155',
               border: activeTool === 'arrow' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'arrow' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Arrow Tool (↗)"
           >
-            ↗
+            <span style={{ fontSize: '13px' }}>↗</span>
           </button>
 
+          {/* Text Tool */}
           <button
             onClick={() => selectDrawingTool('text')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'text' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'text' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'text' ? '#ffffff' : '#334155',
               border: activeTool === 'text' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'text' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Text Tool (T)"
           >
-            T
+            <span style={{ fontSize: '13px' }}>T</span>
           </button>
 
+          {/* Sticky Note Tool */}
           <button
             onClick={() => selectDrawingTool('note')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: activeTool === 'note' ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: activeTool === 'note' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: activeTool === 'note' ? '#ffffff' : '#334155',
               border: activeTool === 'note' ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: activeTool === 'note' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Sticky Note Tool (📄)"
           >
-            📄
+            <span style={{ fontSize: '13px' }}>📄</span>
           </button>
 
+          {/* Rectangle / Shape Tool */}
           <button
             onClick={() => selectDrawingTool('geo')}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: (activeTool === 'geo' || activeTool === 'rectangle') ? '#3b82f6' : '#ffffff',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: (activeTool === 'geo' || activeTool === 'rectangle') ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
               color: (activeTool === 'geo' || activeTool === 'rectangle') ? '#ffffff' : '#334155',
               border: (activeTool === 'geo' || activeTool === 'rectangle') ? 'none' : '1px solid #cbd5e1',
-              fontWeight: '800', cursor: 'pointer', fontSize: '13px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: (activeTool === 'geo' || activeTool === 'rectangle') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Rectangle / Shapes Tool (🔲)"
           >
-            🔲
+            <span style={{ fontSize: '13px' }}>🔲</span>
           </button>
 
-          {/* Style & Palette Swatch Button (Picture 1 Integration) */}
+          {/* Style & Palette Swatch Button */}
           <button
             ref={styleBtnRef}
             onClick={handleToggleStylePanel}
             style={{
-              width: '32px', height: '32px', borderRadius: '50%',
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
               background: stylePanelOpen ? '#f1f5f9' : '#ffffff',
+              color: '#334155',
               border: stylePanelOpen ? '2px solid #3b82f6' : '1px solid #cbd5e1',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               boxShadow: stylePanelOpen ? '0 0 10px rgba(59,130,246,0.4)' : 'none',
-              transition: 'all 0.15s ease', position: 'relative'
+              transition: 'all 0.15s ease'
             }}
-            title="Pen Style, Colors & Stroke Size (Picture 1 Options)"
+            title="Pen Style, Colors & Stroke Size"
           >
             <span style={{
-              width: '16px', height: '16px', borderRadius: '50%',
+              width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0,
               background: tldrawColors.find(c => c.id === activePenColor)?.hex || '#1e293b',
               boxShadow: '0 2px 5px rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.9)'
             }} />
           </button>
         </div>
 
-        {/* Divider */}
+        {/* Divider Line */}
         <div style={{
-          width: toolbarDock === 'top' ? '1px' : '26px',
-          height: toolbarDock === 'top' ? '26px' : '1px',
-          background: '#cbd5e1', margin: '2px 0'
+          width: '1px',
+          height: '24px',
+          background: '#cbd5e1', margin: '0 4px'
         }} />
 
-        {/* 1. Mobile Connection Button */}
-        <button
-          onClick={handleOpenMobileModal}
-          style={{
-            height: '32px', padding: '0 14px',
-            background: mobileSessionActive ? 'linear-gradient(135deg, #bbf7d0, #86efac)' : 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
-            color: '#15803d', border: '1px solid #4ade80', borderRadius: '9999px',
-            fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-            boxShadow: '0 2px 8px rgba(74, 222, 128, 0.25)', transition: 'all 0.15s ease'
-          }}
-        >
-          {mobileSessionActive ? `Mobile (${formatMMSS(mobileTimeLeft)})` : 'Mobile Connect'}
-        </button>
+        {/* FEATURE BUTTONS SECTION */}
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '6px', width: 'auto', alignItems: 'center' }}>
+          {/* Mobile Connection Button */}
+          <button
+            onClick={handleOpenMobileModal}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px',
+              background: mobileSessionActive ? 'linear-gradient(135deg, #bbf7d0, #86efac)' : 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
+              color: '#15803d', border: '1px solid #4ade80', borderRadius: '9999px',
+              fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              boxShadow: '0 2px 8px rgba(74, 222, 128, 0.25)', transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '13px' }}>📱</span>
+            <span>{mobileSessionActive ? `Mobile (${formatMMSS(mobileTimeLeft)})` : 'Mobile Connect'}</span>
+          </button>
 
-        {/* 2. IntoMath Button */}
-        <button
-          onClick={convertSelectedStrokesToMath}
-          className="vb-toolbar-btn vb-btn-math"
-          title="Convert hand-drawn strokes into LaTeX Math formula"
-        >
-          IntoMath
-        </button>
+          {/* IntoMath Button */}
+          <button
+            onClick={convertSelectedStrokesToMath}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px',
+              background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd',
+              borderRadius: '9999px',
+              fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              transition: 'all 0.15s ease'
+            }}
+            title="Convert hand-drawn strokes into LaTeX Math formula"
+          >
+            <span style={{ fontSize: '13px' }}>⚡</span>
+            <span>IntoMath</span>
+          </button>
 
-        {/* 3. IntoText Button */}
-        <button
-          onClick={convertSelectedStrokesToText}
-          className="vb-toolbar-btn vb-btn-text"
-          title="Convert hand-drawn strokes into editable Text"
-        >
-          IntoText
-        </button>
+          {/* IntoText Button */}
+          <button
+            onClick={convertSelectedStrokesToText}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px',
+              background: '#fce7f3', color: '#be185d', border: '1px solid #fbcfe8',
+              borderRadius: '9999px',
+              fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              transition: 'all 0.15s ease'
+            }}
+            title="Convert hand-drawn strokes into editable Text"
+          >
+            <span style={{ fontSize: '13px' }}>📝</span>
+            <span>IntoText</span>
+          </button>
 
-        {/* 5. Notebook Lines Toggle */}
-        <button
-          onClick={() => setNotebookLinesOn(!notebookLinesOn)}
-          style={{
-            height: '32px', padding: '0 14px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer',
-            borderRadius: '9999px', border: notebookLinesOn ? '1px solid #c4b5fd' : '1px solid #cbd5e1', transition: 'all 0.2s',
-            background: notebookLinesOn ? '#f3e8ff' : '#ffffff',
-            color: notebookLinesOn ? '#6b21a8' : '#64748b',
-            whiteSpace: 'nowrap', display: 'flex', alignItems: 'center'
-          }}
-          title="Toggle Ruled Paper Lines"
-        >
-          Lines {notebookLinesOn ? 'ON' : 'OFF'}
-        </button>
+          {/* Notebook Lines Toggle */}
+          <button
+            onClick={() => setNotebookLinesOn(!notebookLinesOn)}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer',
+              borderRadius: '9999px',
+              border: notebookLinesOn ? '1px solid #c4b5fd' : '1px solid #cbd5e1', transition: 'all 0.2s',
+              background: notebookLinesOn ? '#f3e8ff' : '#ffffff',
+              color: notebookLinesOn ? '#6b21a8' : '#64748b',
+              whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+            }}
+            title="Toggle Ruled Paper Lines"
+          >
+            <span style={{ fontSize: '13px' }}>📄</span>
+            <span>Lines {notebookLinesOn ? 'ON' : 'OFF'}</span>
+          </button>
 
-        {/* 6. Board Background Color Palette */}
-        <button
-          ref={colorBtnRef}
-          onClick={handleToggleColorDropdown}
-          style={{
-            height: '32px', padding: '0 12px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer',
-            borderRadius: '9999px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
-            display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap'
-          }}
-          title="Select Whiteboard Background Color"
-        >
-          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: boardColorOptions.find(o => o.id === boardColor)?.bg || '#ffffff', border: '1px solid #94a3b8' }}></span>
-          Color <span style={{ fontSize: '10px', color: '#64748b', marginLeft: '1px' }}>▾</span>
-        </button>
+          {/* Board Background Color Palette */}
+          <button
+            ref={colorBtnRef}
+            onClick={handleToggleColorDropdown}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer',
+              borderRadius: '9999px',
+              border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap'
+            }}
+            title="Select Whiteboard Background Color"
+          >
+            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: boardColorOptions.find(o => o.id === boardColor)?.bg || '#ffffff', border: '1px solid #94a3b8', flexShrink: 0 }}></span>
+            <span>Color ▾</span>
+          </button>
 
-        {/* 7. Take Away Notes PDF Button */}
-        <button
-          ref={takeawayBtnRef}
-          onClick={handleToggleTakeawayDropdown}
-          className="vb-toolbar-btn vb-btn-takeaway"
-        >
-          Take Away
-        </button>
+          {/* Take Away Notes PDF Button */}
+          <button
+            ref={takeawayBtnRef}
+            onClick={handleToggleTakeawayDropdown}
+            style={{
+              width: 'auto',
+              height: '34px', padding: '0 10px',
+              background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a',
+              borderRadius: '9999px',
+              fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span style={{ fontSize: '13px' }}>🍕</span>
+            <span>TakeAway</span>
+          </button>
 
-        {/* 8. Account Logo Badge */}
-        <button
-          ref={accountBtnRef}
-          onClick={handleToggleUserDropdown}
-          style={{
-            width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer',
-            background: currentUser ? 'linear-gradient(135deg, #818cf8, #6366f1)' : '#60a5fa',
-            color: 'white', border: 'none', fontWeight: '800',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '14px', boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
-            transition: 'transform 0.15s ease', flexShrink: 0
-          }}
-          title={currentUser ? `Account: ${currentUser.name}` : "Sign In / Account Options"}
-        >
-          {currentUser ? currentUser.name.charAt(0).toUpperCase() : '👤'}
-        </button>
+          {/* Account Logo Badge */}
+          <button
+            ref={accountBtnRef}
+            onClick={handleToggleUserDropdown}
+            style={{
+              width: '32px',
+              height: '34px', padding: '0',
+              borderRadius: '50%',
+              background: currentUser ? 'linear-gradient(135deg, #818cf8, #6366f1)' : '#60a5fa',
+              color: 'white', border: 'none', fontWeight: '800', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontSize: '13px', boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+              transition: 'transform 0.15s ease', flexShrink: 0
+            }}
+            title={currentUser ? `Account: ${currentUser.name}` : "Sign In / Account Options"}
+          >
+            <span>{currentUser ? currentUser.name.charAt(0).toUpperCase() : '👤'}</span>
+          </button>
 
-        {/* 9. Integrated Clock Badge */}
-        <LiveClockBadge onClick={() => setClockStage('exam_panel')} />
-
-        {/* 10. ViewBoard Side Dock Position Switcher */}
-        <button
-          onClick={handleCycleDock}
-          style={{
-            width: '32px', height: '32px', borderRadius: '50%', fontSize: '13px', fontWeight: '800', cursor: 'pointer',
-            border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.06)', transition: 'all 0.15s ease'
-          }}
-          title={`Cycle Toolbar Dock: Left, Top, or Right (Current: ${toolbarDock.toUpperCase()})`}
-        >
-          📌
-        </button>
+          {/* Integrated Clock Badge */}
+          <LiveClockBadge onClick={() => setClockStage('exam_panel')} />
+        </div>
       </div>
 
       {/* Integrated Style & Color Palette Popover (Picture 1 Match) */}
@@ -2109,30 +2153,35 @@ function ConversionToolbar() {
 
           <div style={{ width: '100%', height: '1px', background: '#f1f5f9', margin: '10px 0' }} />
 
-          {/* 2. Stroke Size Selector (S, M, L, XL pills matching Picture 1) */}
-          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px' }}>
-            Stroke Size
+          {/* 2. Stroke Size Range Slider */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Stroke Size
+            </span>
+            <span style={{ fontSize: '10px', fontWeight: '800', color: '#3b82f6', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '1px 7px', borderRadius: '10px' }}>
+              {activePenSize.toUpperCase()}
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: '6px', justifyContent: 'space-between', marginBottom: '12px' }}>
-            {tldrawSizes.map(s => {
-              const isSelected = activePenSize === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => handleSetPenSize(s.id)}
-                  style={{
-                    flex: 1, padding: '6px 0', fontSize: '12px', fontWeight: '800', borderRadius: '10px',
-                    background: isSelected ? '#e2e8f0' : '#f8fafc',
-                    color: isSelected ? '#0f172a' : '#64748b',
-                    border: isSelected ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
-                    boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                    cursor: 'pointer', transition: 'all 0.15s ease'
-                  }}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', padding: '0 2px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', flexShrink: 0 }} title="Thin" />
+            <input
+              type="range"
+              min="1"
+              max="100"
+              value={strokeSliderValue}
+              onChange={(e) => handleStrokeSliderChange(Number(e.target.value))}
+              style={{
+                flex: 1,
+                height: '6px',
+                borderRadius: '4px',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                background: `linear-gradient(to right, #3b82f6 ${strokeSliderValue}%, #e2e8f0 ${strokeSliderValue}%)`,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            />
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#64748b', flexShrink: 0 }} title="Thick" />
           </div>
 
           {/* 3. Stroke Dash Style Grid */}
