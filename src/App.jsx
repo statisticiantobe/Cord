@@ -289,6 +289,42 @@ function AnalogClockView({ date, size = 180, isGlow = true }) {
   );
 }
 
+const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatHHMM = (date) => {
+    let h = date.getHours();
+    const m = String(date.getMinutes()).padStart(2, '0');
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${m}`;
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        height: '32px', padding: '0 12px',
+        background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+        color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
+        borderRadius: '9999px', fontSize: '11.5px', fontWeight: '800',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        cursor: 'pointer', whiteSpace: 'nowrap',
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.25)',
+        transition: 'all 0.15s ease', flexShrink: 0
+      }}
+      title="Click for Exam Timer & Fullscreen Clock"
+    >
+      <span style={{ fontSize: '13px' }}>🕒</span>
+      <span>{formatHHMM(time)}</span>
+    </button>
+  );
+});
+
 function ConversionToolbar() {
   const editor = useEditor();
   const [selectedSize, setSelectedSize] = useState('large');
@@ -298,6 +334,20 @@ function ConversionToolbar() {
   const [notebookLinesOn, setNotebookLinesOn] = useState(false);
   const [boardColor, setBoardColor] = useState('default');
   const [boardColorDropdownOpen, setBoardColorDropdownOpen] = useState(false);
+
+  // ViewBoard Side Docking Position State ('left' | 'top' | 'right')
+  const [toolbarDock, setToolbarDock] = useState(() => {
+    try {
+      return localStorage.getItem('viewboard_dock') || 'left';
+    } catch { return 'left'; }
+  });
+
+  const handleCycleDock = () => {
+    const next = toolbarDock === 'left' ? 'top' : toolbarDock === 'top' ? 'right' : 'left';
+    setToolbarDock(next);
+    try { localStorage.setItem('viewboard_dock', next); } catch (e) { }
+    showNotification(`📌 Docked to ${next.toUpperCase()}`);
+  };
 
   // 3-Stage Clock Widget States
   const [clockStage, setClockStage] = useState('badge');
@@ -524,10 +574,13 @@ function ConversionToolbar() {
   const handleToggleUserDropdown = () => {
     if (!userDropdownOpen && accountBtnRef.current) {
       const rect = accountBtnRef.current.getBoundingClientRect();
-      setAccountMenuPos({
-        top: Math.round(rect.bottom + 8),
-        right: Math.max(12, Math.round(window.innerWidth - rect.right))
-      });
+      if (toolbarDock === 'left') {
+        setAccountMenuPos({ top: Math.min(rect.top, window.innerHeight - 340), left: Math.round(rect.right + 12) });
+      } else if (toolbarDock === 'right') {
+        setAccountMenuPos({ top: Math.min(rect.top, window.innerHeight - 340), right: Math.round(window.innerWidth - rect.left + 12) });
+      } else {
+        setAccountMenuPos({ top: Math.round(rect.bottom + 8), right: Math.max(12, Math.round(window.innerWidth - rect.right)) });
+      }
     }
     setUserDropdownOpen(!userDropdownOpen);
   };
@@ -537,10 +590,13 @@ function ConversionToolbar() {
       refreshNotesFromBoard();
       if (takeawayBtnRef.current) {
         const rect = takeawayBtnRef.current.getBoundingClientRect();
-        setTakeawayMenuPos({
-          top: Math.round(rect.bottom + 8),
-          left: Math.round(rect.left)
-        });
+        if (toolbarDock === 'left') {
+          setTakeawayMenuPos({ top: Math.min(rect.top, window.innerHeight - 360), left: Math.round(rect.right + 12) });
+        } else if (toolbarDock === 'right') {
+          setTakeawayMenuPos({ top: Math.min(rect.top, window.innerHeight - 360), left: Math.max(12, Math.round(rect.left - 340)) });
+        } else {
+          setTakeawayMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
+        }
       }
     }
     setDropdownOpen(!dropdownOpen);
@@ -549,10 +605,13 @@ function ConversionToolbar() {
   const handleToggleColorDropdown = () => {
     if (!boardColorDropdownOpen && colorBtnRef.current) {
       const rect = colorBtnRef.current.getBoundingClientRect();
-      setColorMenuPos({
-        top: Math.round(rect.bottom + 8),
-        left: Math.round(rect.left)
-      });
+      if (toolbarDock === 'left') {
+        setColorMenuPos({ top: Math.min(rect.top, window.innerHeight - 180), left: Math.round(rect.right + 12) });
+      } else if (toolbarDock === 'right') {
+        setColorMenuPos({ top: Math.min(rect.top, window.innerHeight - 180), left: Math.max(12, Math.round(rect.left - 150)) });
+      } else {
+        setColorMenuPos({ top: Math.round(rect.bottom + 8), left: Math.round(rect.left) });
+      }
     }
     setBoardColorDropdownOpen(!boardColorDropdownOpen);
   };
@@ -1560,18 +1619,20 @@ function ConversionToolbar() {
 
       {/* Main Top Control Toolbar (Aesthetic Frosted Glassmorphism with Light Grey Shade on White Board) */}
       <div style={{
-        position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 999999,
+        position: 'fixed',
+        ...(toolbarDock === 'left' ? { top: '50%', left: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
+          : toolbarDock === 'right' ? { top: '50%', right: '16px', transform: 'translateY(-50%)', flexDirection: 'column', padding: '12px 8px', borderRadius: '24px' }
+          : { top: '16px', left: '50%', transform: 'translateX(-50%)', flexDirection: 'row', padding: '7px 14px', borderRadius: '9999px', maxWidth: 'calc(100vw - 40px)', overflowX: 'auto' }),
+        zIndex: 999999,
         display: 'flex', alignItems: 'center', gap: '8px',
-        background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.92)' : 'rgba(255, 255, 255, 0.55)',
+        background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.94)' : 'rgba(255, 255, 255, 0.75)',
         backdropFilter: 'blur(24px) saturate(200%)',
         WebkitBackdropFilter: 'blur(24px) saturate(200%)',
-        padding: '7px 14px', borderRadius: '9999px',
         border: boardColor === 'default' ? '1px solid rgba(203, 213, 225, 0.9)' : '1px solid rgba(255, 255, 255, 0.8)',
         boxShadow: boardColor === 'default'
-          ? '0 10px 30px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(0,0,0,0.04)'
-          : '0 12px 35px rgba(31, 38, 135, 0.1), 0 2px 10px rgba(255, 255, 255, 0.6) inset, 0 1px 3px rgba(0,0,0,0.05)',
-        maxWidth: 'calc(100vw - 40px)', overflowX: 'auto',
-        transition: 'background 0.3s ease, border 0.3s ease'
+          ? '0 10px 30px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(0,0,0,0.04)'
+          : '0 12px 35px rgba(31, 38, 135, 0.12), 0 2px 10px rgba(255, 255, 255, 0.6) inset, 0 1px 3px rgba(0,0,0,0.05)',
+        transition: 'all 0.3s ease'
       }}>
 
         {/* Toast Save Notification */}
@@ -1581,7 +1642,7 @@ function ConversionToolbar() {
           </div>
         )}
 
-        {/* 1. EXTREME LEFT: Mobile Connection Button (Light Green) */}
+        {/* 1. Mobile Connection Button */}
         <button
           onClick={handleOpenMobileModal}
           style={{
@@ -1595,7 +1656,7 @@ function ConversionToolbar() {
           {mobileSessionActive ? `Mobile (${formatMMSS(mobileTimeLeft)})` : 'Mobile Connect'}
         </button>
 
-        {/* 2. IntoMath Button (Light Blue) */}
+        {/* 2. IntoMath Button */}
         <button
           onClick={convertSelectedStrokesToMath}
           className="vb-toolbar-btn vb-btn-math"
@@ -1604,7 +1665,7 @@ function ConversionToolbar() {
           IntoMath
         </button>
 
-        {/* 3. IntoText Button (Light Pink) */}
+        {/* 3. IntoText Button */}
         <button
           onClick={convertSelectedStrokesToText}
           className="vb-toolbar-btn vb-btn-text"
@@ -1613,7 +1674,7 @@ function ConversionToolbar() {
           IntoText
         </button>
 
-        {/* 5. Notebook Lines Toggle (Sleek Pill) */}
+        {/* 5. Notebook Lines Toggle */}
         <button
           onClick={() => setNotebookLinesOn(!notebookLinesOn)}
           style={{
@@ -1628,7 +1689,7 @@ function ConversionToolbar() {
           Lines {notebookLinesOn ? 'ON' : 'OFF'}
         </button>
 
-        {/* 6. Board Background Color Palette (Sleek Pill with Dropdown Arrow) */}
+        {/* 6. Board Background Color Palette */}
         <button
           ref={colorBtnRef}
           onClick={handleToggleColorDropdown}
@@ -1643,7 +1704,7 @@ function ConversionToolbar() {
           Color <span style={{ fontSize: '10px', color: '#64748b', marginLeft: '1px' }}>▾</span>
         </button>
 
-        {/* 7. Take Away Notes PDF Button (Light Amber) */}
+        {/* 7. Take Away Notes PDF Button */}
         <button
           ref={takeawayBtnRef}
           onClick={handleToggleTakeawayDropdown}
@@ -1669,23 +1730,21 @@ function ConversionToolbar() {
           {currentUser ? currentUser.name.charAt(0).toUpperCase() : '👤'}
         </button>
 
-        {/* 9. Integrated Clock Badge (Inside Toolbar) */}
+        {/* 9. Integrated Clock Badge */}
+        <LiveClockBadge onClick={() => setClockStage('exam_panel')} />
+
+        {/* 10. ViewBoard Side Dock Position Switcher */}
         <button
-          onClick={() => setClockStage('exam_panel')}
+          onClick={handleCycleDock}
           style={{
-            height: '32px', padding: '0 12px',
-            background: 'linear-gradient(135deg, #0f172a, #1e293b)',
-            color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
-            borderRadius: '9999px', fontSize: '11.5px', fontWeight: '800',
-            display: 'flex', alignItems: 'center', gap: '6px',
-            cursor: 'pointer', whiteSpace: 'nowrap',
-            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.25)',
-            transition: 'all 0.15s ease', flexShrink: 0
+            height: '32px', padding: '0 10px', fontSize: '11px', fontWeight: '800', cursor: 'pointer',
+            borderRadius: '9999px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
+            display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.06)', transition: 'all 0.15s ease'
           }}
-          title="Click for Exam Timer & Fullscreen Clock"
+          title="Change ViewBoard Toolbar Dock: Left, Top, or Right"
         >
-          <span style={{ fontSize: '13px' }}>🕒</span>
-          <span>{formatHHMM(now)}</span>
+          📌 {toolbarDock === 'left' ? 'Dock: Left' : toolbarDock === 'right' ? 'Dock: Right' : 'Dock: Top'}
         </button>
       </div>
 
