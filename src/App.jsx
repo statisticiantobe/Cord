@@ -306,6 +306,31 @@ function ConversionToolbar() {
   const [examEndTime, setExamEndTime] = useState('12:00');
   const [now, setNow] = useState(new Date());
 
+  // Native Fullscreen API synchronization for Fullscreen Clock
+  useEffect(() => {
+    if (clockStage === 'fullscreen') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => { });
+      }
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => { });
+      }
+    }
+  }, [clockStage]);
+
+  useEffect(() => {
+    function handleFullscreenChange() {
+      if (!document.fullscreenElement && clockStage === 'fullscreen') {
+        setClockStage('exam_panel');
+      }
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [clockStage]);
+
   const boardColorOptions = [
     { id: 'default', name: 'White', bg: '#ffffff' },
     { id: 'black', name: 'Black', bg: '#0f172a' },
@@ -1535,7 +1560,7 @@ function ConversionToolbar() {
 
       {/* Main Top Control Toolbar (Aesthetic Frosted Glassmorphism with Light Grey Shade on White Board) */}
       <div style={{
-        position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 3000,
+        position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 999999,
         display: 'flex', alignItems: 'center', gap: '8px',
         background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.92)' : 'rgba(255, 255, 255, 0.55)',
         backdropFilter: 'blur(24px) saturate(200%)',
@@ -1669,7 +1694,7 @@ function ConversionToolbar() {
         <div
           ref={colorDropdownRef}
           style={{
-            position: 'fixed', top: `${colorMenuPos.top}px`, left: `${colorMenuPos.left}px`, zIndex: 3600,
+            position: 'fixed', top: `${colorMenuPos.top}px`, left: `${colorMenuPos.left}px`, zIndex: 9999999,
             background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(20px)',
             borderRadius: '18px', border: '1px solid rgba(226, 232, 240, 0.9)',
             boxShadow: '0 20px 45px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.06)',
@@ -1697,7 +1722,7 @@ function ConversionToolbar() {
         <div
           ref={accountDropdownRef}
           style={{
-            position: 'fixed', top: `${accountMenuPos.top}px`, right: `${accountMenuPos.right}px`, zIndex: 3600,
+            position: 'fixed', top: `${accountMenuPos.top}px`, right: `${accountMenuPos.right}px`, zIndex: 9999999,
             background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(20px)',
             borderRadius: '20px', border: '1px solid rgba(226, 232, 240, 0.9)',
             boxShadow: '0 20px 45px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.06)',
@@ -1792,7 +1817,7 @@ function ConversionToolbar() {
 
       {/* Take Away Notes Preview Drawer */}
       {dropdownOpen && (
-        <div style={{ position: 'fixed', top: `${takeawayMenuPos.top}px`, left: `${takeawayMenuPos.left}px`, background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(20px)', borderRadius: '20px', boxShadow: '0 20px 45px rgba(0,0,0,0.16)', border: '1px solid rgba(226, 232, 240, 0.9)', width: '330px', padding: '16px', zIndex: 3500, textAlign: 'left' }}>
+        <div style={{ position: 'fixed', top: `${takeawayMenuPos.top}px`, left: `${takeawayMenuPos.left}px`, background: 'rgba(255, 255, 255, 0.96)', backdropFilter: 'blur(20px)', borderRadius: '20px', boxShadow: '0 20px 45px rgba(0,0,0,0.16)', border: '1px solid rgba(226, 232, 240, 0.9)', width: '330px', padding: '16px', zIndex: 9999999, textAlign: 'left' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
             <h4 style={{ margin: 0, fontSize: '14px', color: '#1e293b', fontWeight: '800' }}>📄 Session Notes Summary</h4>
             <button
@@ -1877,7 +1902,7 @@ function ConversionToolbar() {
       {clockStage === 'exam_panel' && (
         <div style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 4000, width: '430px', maxWidth: '92vw',
+          zIndex: 9999999, width: '430px', maxWidth: '92vw',
           background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(30px)',
           borderRadius: '28px', border: '1px solid rgba(255, 255, 255, 0.15)',
           boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 35px rgba(56, 189, 248, 0.2)',
@@ -2038,7 +2063,7 @@ function ConversionToolbar() {
       {/* 3. STAGE 3: FULLSCREEN MODE WITH FULL BG MOVING BLUE WALLPAPER & GREEN BORDER TIME UP BOX */}
       {clockStage === 'fullscreen' && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
+          position: 'fixed', inset: 0, zIndex: 99999999,
           background: '#070b14', color: 'white',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           padding: '24px', userSelect: 'none', overflow: 'hidden'
