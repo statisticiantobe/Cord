@@ -26,6 +26,22 @@ body {
   overflow: hidden;
 }
 
+/* Zero-latency canvas hardware acceleration & pointer optimization */
+.tl-container,
+.tl-canvas,
+.tl-background,
+.tl-layer,
+.tl-svg-container,
+canvas,
+svg {
+  touch-action: none !important;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* TLDraw UI ViewBoard Offsets to prevent overlap */
 .tlui-layout__top {
   top: 12px !important;

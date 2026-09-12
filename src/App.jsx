@@ -327,7 +327,7 @@ const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
 
 function ConversionToolbar() {
   const editor = useEditor();
-  const [selectedSize, setSelectedSize] = useState('large');
+  const [selectedSize, setSelectedSize] = useState('normal');
   const [selectedFont, setSelectedFont] = useState('sans');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notesPreview, setNotesPreview] = useState([]);
@@ -342,8 +342,9 @@ function ConversionToolbar() {
     if (!editor) return;
     const updateActiveTool = () => {
       try {
-        if (editor.currentTool && editor.currentTool.id) {
-          setActiveTool(editor.currentTool.id);
+        const toolId = editor.currentTool?.id;
+        if (toolId) {
+          setActiveTool(prev => (prev === toolId ? prev : toolId));
         }
       } catch (e) { }
     };
@@ -355,6 +356,9 @@ function ConversionToolbar() {
   }, [editor]);
 
   const selectDrawingTool = (toolId) => {
+    if (toolId !== 'eraser') {
+      setEraserMode('complete');
+    }
     if (!editor) return;
     try {
       editor.setCurrentTool(toolId);
@@ -373,6 +377,72 @@ function ConversionToolbar() {
   const [activePenFill, setActivePenFill] = useState('none');
   const styleBtnRef = useRef(null);
   const stylePanelRef = useRef(null);
+
+  // Integrated Eraser Popover Menu States & Handlers
+  const [eraserMenuOpen, setEraserMenuOpen] = useState(false);
+  const [eraserMenuPos, setEraserMenuPos] = useState({ top: 60, left: 16 });
+  const [eraserMode, setEraserMode] = useState('complete');
+  const eraserBtnRef = useRef(null);
+  const eraserMenuRef = useRef(null);
+
+  const getBoardBgHex = (boardColorId) => {
+    const bgMap = {
+      default: 'black',
+      black: 'white',
+      blue: 'white',
+      orange: 'white',
+      purple: 'white',
+      green: 'white',
+      grey: 'white',
+      yellow: 'black',
+      pink: 'white'
+    };
+    return bgMap[boardColorId] || 'black';
+  };
+
+  const handleSelectCompleteEraser = () => {
+    setEraserMode('complete');
+    setEraserMenuOpen(false);
+    if (!editor) return;
+    try {
+      editor.setCurrentTool('eraser');
+    } catch (e) { }
+  };
+
+  const handleSelectSelectiveEraser = () => {
+    setEraserMode('selective');
+    setEraserMenuOpen(false);
+    if (!editor) return;
+    try {
+      editor.setCurrentTool('draw');
+      const eraserColor = getBoardBgHex(boardColor);
+      editor.setStyleForNextShapes(DefaultColorStyle, eraserColor);
+      editor.setStyleForNextShapes(DefaultSizeStyle, 's');
+    } catch (e) { }
+  };
+
+  const handleToggleEraserMenu = () => {
+    if (!eraserMenuOpen && eraserBtnRef.current) {
+      const rect = eraserBtnRef.current.getBoundingClientRect();
+      setEraserMenuPos({ top: Math.round(rect.bottom + 12), left: Math.max(16, Math.min(rect.left - 40, window.innerWidth - 270)) });
+    }
+    setEraserMenuOpen(!eraserMenuOpen);
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (eraserMenuRef.current && !eraserMenuRef.current.contains(event.target) &&
+        eraserBtnRef.current && !eraserBtnRef.current.contains(event.target)) {
+        setEraserMenuOpen(false);
+      }
+    }
+    if (eraserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [eraserMenuOpen]);
 
   const tldrawColors = [
     { id: 'black', hex: '#1e293b' },
@@ -507,30 +577,37 @@ function ConversionToolbar() {
   const [examEndTime, setExamEndTime] = useState('12:00');
   const [now, setNow] = useState(new Date());
 
-  // Native Fullscreen API synchronization for Fullscreen Clock
-  useEffect(() => {
-    if (clockStage === 'fullscreen') {
-      if (!document.fullscreenElement) {
+  const handleEnterFullscreenClock = () => {
+    setClockStage('fullscreen');
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => { });
       }
-    } else {
-      if (document.fullscreenElement) {
+    } catch (e) { }
+  };
+
+  const handleExitFullscreenClock = () => {
+    setClockStage('exam_panel');
+    try {
+      if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => { });
       }
-    }
-  }, [clockStage]);
+    } catch (e) { }
+  };
 
   useEffect(() => {
     function handleFullscreenChange() {
-      if (!document.fullscreenElement && clockStage === 'fullscreen') {
-        setClockStage('exam_panel');
+      if (!document.fullscreenElement) {
+        setClockStage(prev => (prev === 'fullscreen' ? 'exam_panel' : prev));
       }
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
-  }, [clockStage]);
+  }, []);
 
   const boardColorOptions = [
     { id: 'default', name: 'White', bg: '#ffffff' },
@@ -956,6 +1033,7 @@ function ConversionToolbar() {
   }, [notebookLinesOn]);
 
   // Perform Handwriting -> Math Equation Conversion
+  // Perform Handwriting -> Math Equation Conversion
   const convertSelectedStrokesToMath = async () => {
     if (!editor || isConvertingRef.current) return;
     const selectedShapes = editor.getSelectedShapes().filter(s => s.type === 'draw');
@@ -972,6 +1050,14 @@ function ConversionToolbar() {
       let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
       const strokes = [];
       shapesToConvert.forEach(shape => {
+        const bounds = editor.getShapePageBounds(shape);
+        if (bounds) {
+          if (bounds.x < minX) minX = bounds.x;
+          if (bounds.y < minY) minY = bounds.y;
+          if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
+          if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
+        }
+
         const pageX = shape.x;
         const pageY = shape.y;
         let xArr = [];
@@ -982,10 +1068,6 @@ function ConversionToolbar() {
             geometry.vertices.forEach(pt => {
               const vx = pageX + pt.x;
               const vy = pageY + pt.y;
-              if (vx < minX) minX = vx;
-              if (vy < minY) minY = vy;
-              if (vx > maxX) maxX = vx;
-              if (vy > maxY) maxY = vy;
               xArr.push(Math.round(vx));
               yArr.push(Math.round(vy));
             });
@@ -994,7 +1076,8 @@ function ConversionToolbar() {
         if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
       });
 
-      const drawnHeight = Math.max(25, maxY - minY);
+      const drawnWidth = Math.max(30, maxX - minX);
+      const drawnHeight = Math.max(20, maxY - minY);
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
@@ -1033,16 +1116,29 @@ function ConversionToolbar() {
           const img = new window.Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
-            const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : 1.4;
+            const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : (drawnWidth / drawnHeight);
 
             let scaleMult = 1.0;
-            if (selectedSize === 'small') scaleMult = 0.75;
-            if (selectedSize === 'normal') scaleMult = 1.0;
+            if (selectedSize === 'small') scaleMult = 0.8;
+            if (selectedSize === 'normal' || selectedSize === 'auto') scaleMult = 1.0;
             if (selectedSize === 'large') scaleMult = 1.25;
             if (selectedSize === 'xlarge') scaleMult = 1.6;
 
-            const displayHeight = Math.max(24, Math.round(drawnHeight * scaleMult));
-            const displayWidth = Math.max(30, Math.round(displayHeight * aspect));
+            // Target size to match user's exact hand-drawn strokes bounding box
+            let targetHeight = drawnHeight * scaleMult;
+            let displayHeight = Math.max(18, Math.round(targetHeight));
+            let displayWidth = Math.max(24, Math.round(displayHeight * aspect));
+
+            // Ensure width scaling matches the user's handwriting box exactly
+            const targetWidth = drawnWidth * scaleMult;
+            if (displayWidth > targetWidth * 1.25) {
+              displayWidth = Math.max(24, Math.round(targetWidth));
+              displayHeight = Math.max(18, Math.round(displayWidth / aspect));
+            }
+
+            // Align equation precisely over user's hand-drawn bounding box center
+            const posX = minX + Math.max(0, (drawnWidth - displayWidth) / 2);
+            const posY = minY + Math.max(0, (drawnHeight - displayHeight) / 2);
 
             const assetId = AssetRecordType.createId();
             const newShapeId = createShapeId();
@@ -1054,13 +1150,12 @@ function ConversionToolbar() {
 
             editor.createShape({
               id: newShapeId,
-              type: 'image', x: minX, y: minY,
+              type: 'image', x: posX, y: posY,
               meta: { isEquation: true, latex: latexStr },
               props: { assetId: assetId, w: displayWidth, h: displayHeight }
             });
 
             setNotesPreview(prev => [...prev, { type: 'math', content: latexStr }]);
-            showNotification('✅ Converted into Math Formula!');
             isConvertingRef.current = false;
           };
 
@@ -1101,6 +1196,14 @@ function ConversionToolbar() {
       let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
       const strokes = [];
       shapesToConvert.forEach(shape => {
+        const bounds = editor.getShapePageBounds(shape);
+        if (bounds) {
+          if (bounds.x < minX) minX = bounds.x;
+          if (bounds.y < minY) minY = bounds.y;
+          if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
+          if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
+        }
+
         const pageX = shape.x;
         const pageY = shape.y;
         let xArr = [];
@@ -1111,10 +1214,6 @@ function ConversionToolbar() {
             geometry.vertices.forEach(pt => {
               const vx = pageX + pt.x;
               const vy = pageY + pt.y;
-              if (vx < minX) minX = vx;
-              if (vy < minY) minY = vy;
-              if (vx > maxX) maxX = vx;
-              if (vy > maxY) maxY = vy;
               xArr.push(Math.round(vx));
               yArr.push(Math.round(vy));
             });
@@ -1123,7 +1222,7 @@ function ConversionToolbar() {
         if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
       });
 
-      const drawnHeight = Math.max(20, maxY - minY);
+      const drawnHeight = Math.max(16, maxY - minY);
 
       const payload = {
         width: window.innerWidth,
@@ -1151,22 +1250,19 @@ function ConversionToolbar() {
         if (recognizedText) {
           editor.deleteShapes(shapesToConvert.map(s => s.id));
 
-          let fontSize = 'm';
-          if (drawnHeight <= 30) fontSize = 's';
-          else if (drawnHeight <= 60) fontSize = 'm';
-          else if (drawnHeight <= 95) fontSize = 'l';
-          else fontSize = 'xl';
+          let scaleMult = 1.0;
+          if (selectedSize === 'small') scaleMult = 0.8;
+          if (selectedSize === 'normal' || selectedSize === 'auto') scaleMult = 1.0;
+          if (selectedSize === 'large') scaleMult = 1.25;
+          if (selectedSize === 'xlarge') scaleMult = 1.6;
 
-          if (selectedSize === 'small') {
-            if (fontSize === 'xl') fontSize = 'l';
-            else if (fontSize === 'l') fontSize = 'm';
-            else fontSize = 's';
-          } else if (selectedSize === 'large') {
-            if (fontSize === 's') fontSize = 'm';
-            else if (fontSize === 'm') fontSize = 'l';
-          } else if (selectedSize === 'xlarge') {
-            fontSize = 'xl';
-          }
+          const targetHeight = drawnHeight * scaleMult;
+
+          let fontSize = 'm';
+          if (targetHeight <= 32) fontSize = 's';
+          else if (targetHeight <= 64) fontSize = 'm';
+          else if (targetHeight <= 96) fontSize = 'l';
+          else fontSize = 'xl';
 
           const newTextShapeId = createShapeId();
 
@@ -1185,13 +1281,8 @@ function ConversionToolbar() {
             try {
               const bounds = editor.getShapePageBounds(newTextShapeId);
               if (bounds && bounds.h > 0) {
-                let targetHeight = drawnHeight;
-                if (selectedSize === 'small') targetHeight *= 0.8;
-                if (selectedSize === 'large') targetHeight *= 1.3;
-                if (selectedSize === 'xlarge') targetHeight *= 1.7;
-
                 const scaleFactor = targetHeight / bounds.h;
-                if (scaleFactor > 0.1 && Math.abs(scaleFactor - 1) > 0.05) {
+                if (scaleFactor > 0.1 && Math.abs(scaleFactor - 1) > 0.03) {
                   if (typeof editor.scaleShape === 'function') {
                     editor.scaleShape(newTextShapeId, scaleFactor, scaleFactor);
                   } else {
@@ -1209,7 +1300,6 @@ function ConversionToolbar() {
           }, 20);
 
           setNotesPreview(prev => [...prev, { type: 'text', content: recognizedText }]);
-          showNotification('✅ Converted into Text!');
         } else {
           showNotification('⚠️ No text recognized.');
         }
@@ -1792,9 +1882,7 @@ function ConversionToolbar() {
         overflowX: 'auto',
         zIndex: 999999,
         display: 'flex', alignItems: 'center', gap: '6px',
-        background: boardColor === 'default' ? 'rgba(241, 245, 249, 0.95)' : 'rgba(255, 255, 255, 0.82)',
-        backdropFilter: 'blur(24px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(200%)',
+        background: boardColor === 'default' ? 'rgba(248, 250, 252, 0.98)' : 'rgba(255, 255, 255, 0.97)',
         border: boardColor === 'default' ? '1px solid rgba(203, 213, 225, 0.9)' : '1px solid rgba(255, 255, 255, 0.8)',
         boxShadow: boardColor === 'default'
           ? '0 12px 35px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(0,0,0,0.04)'
@@ -1858,12 +1946,12 @@ function ConversionToolbar() {
               width: '32px',
               height: '34px', padding: '0',
               borderRadius: '50%',
-              background: activeTool === 'draw' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
-              color: activeTool === 'draw' ? '#ffffff' : '#334155',
-              border: activeTool === 'draw' ? 'none' : '1px solid #cbd5e1',
+              background: (activeTool === 'draw' && eraserMode !== 'selective') ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
+              color: (activeTool === 'draw' && eraserMode !== 'selective') ? '#ffffff' : '#334155',
+              border: (activeTool === 'draw' && eraserMode !== 'selective') ? 'none' : '1px solid #cbd5e1',
               fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: activeTool === 'draw' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              boxShadow: (activeTool === 'draw' && eraserMode !== 'selective') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Pencil / Draw Tool (✏️)"
@@ -1871,22 +1959,23 @@ function ConversionToolbar() {
             <span style={{ fontSize: '13px' }}>✏️</span>
           </button>
 
-          {/* Eraser Tool */}
+          {/* Eraser Tool Button (Opens Eraser Options Popover) */}
           <button
-            onClick={() => selectDrawingTool('eraser')}
+            ref={eraserBtnRef}
+            onClick={handleToggleEraserMenu}
             style={{
               width: '32px',
               height: '34px', padding: '0',
               borderRadius: '50%',
-              background: activeTool === 'eraser' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
-              color: activeTool === 'eraser' ? '#ffffff' : '#334155',
-              border: activeTool === 'eraser' ? 'none' : '1px solid #cbd5e1',
+              background: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
+              color: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? '#ffffff' : '#334155',
+              border: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? 'none' : '1px solid #cbd5e1',
               fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: activeTool === 'eraser' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              boxShadow: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
-            title="Eraser Tool (🧹)"
+            title="Eraser Tool (Complete 🧹 vs Selective ✂️)"
           >
             <span style={{ fontSize: '13px' }}>🧹</span>
           </button>
@@ -2015,12 +2104,11 @@ function ConversionToolbar() {
               background: mobileSessionActive ? 'linear-gradient(135deg, #bbf7d0, #86efac)' : 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
               color: '#15803d', border: '1px solid #4ade80', borderRadius: '9999px',
               fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               boxShadow: '0 2px 8px rgba(74, 222, 128, 0.25)', transition: 'all 0.15s ease'
             }}
           >
-            <span style={{ fontSize: '13px' }}>📱</span>
-            <span>{mobileSessionActive ? `Mobile (${formatMMSS(mobileTimeLeft)})` : 'Mobile Connect'}</span>
+            <span>{mobileSessionActive ? `Mobile (${formatMMSS(mobileTimeLeft)})` : 'Mobile'}</span>
           </button>
 
           {/* IntoMath Button */}
@@ -2032,12 +2120,11 @@ function ConversionToolbar() {
               background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd',
               borderRadius: '9999px',
               fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               transition: 'all 0.15s ease'
             }}
             title="Convert hand-drawn strokes into LaTeX Math formula"
           >
-            <span style={{ fontSize: '13px' }}>⚡</span>
             <span>IntoMath</span>
           </button>
 
@@ -2050,12 +2137,11 @@ function ConversionToolbar() {
               background: '#fce7f3', color: '#be185d', border: '1px solid #fbcfe8',
               borderRadius: '9999px',
               fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               transition: 'all 0.15s ease'
             }}
             title="Convert hand-drawn strokes into editable Text"
           >
-            <span style={{ fontSize: '13px' }}>📝</span>
             <span>IntoText</span>
           </button>
 
@@ -2069,11 +2155,10 @@ function ConversionToolbar() {
               border: notebookLinesOn ? '1px solid #c4b5fd' : '1px solid #cbd5e1', transition: 'all 0.2s',
               background: notebookLinesOn ? '#f3e8ff' : '#ffffff',
               color: notebookLinesOn ? '#6b21a8' : '#64748b',
-              whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+              whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
             }}
             title="Toggle Ruled Paper Lines"
           >
-            <span style={{ fontSize: '13px' }}>📄</span>
             <span>Lines {notebookLinesOn ? 'ON' : 'OFF'}</span>
           </button>
 
@@ -2086,7 +2171,7 @@ function ConversionToolbar() {
               height: '34px', padding: '0 10px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer',
               borderRadius: '9999px',
               border: '1px solid #cbd5e1', background: '#ffffff', color: '#334155',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap'
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap'
             }}
             title="Select Whiteboard Background Color"
           >
@@ -2094,7 +2179,7 @@ function ConversionToolbar() {
             <span>Color ▾</span>
           </button>
 
-          {/* Take Away Notes PDF Button */}
+          {/* Take Away Notes PDF Button (Pizza slice emoji 🍕 for TakeAway!) */}
           <button
             ref={takeawayBtnRef}
             onClick={handleToggleTakeawayDropdown}
@@ -2104,7 +2189,7 @@ function ConversionToolbar() {
               background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a',
               borderRadius: '9999px',
               fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               transition: 'all 0.15s ease'
             }}
           >
@@ -2135,6 +2220,81 @@ function ConversionToolbar() {
           <LiveClockBadge onClick={() => setClockStage('exam_panel')} />
         </div>
       </div>
+
+      {/* Aesthetic Eraser Popover Menu */}
+      {eraserMenuOpen && (
+        <div
+          ref={eraserMenuRef}
+          style={{
+            position: 'fixed',
+            top: `${eraserMenuPos.top}px`,
+            ...(eraserMenuPos.left !== 'auto' ? { left: `${eraserMenuPos.left}px` } : {}),
+            zIndex: 9999999,
+            width: '260px',
+            background: 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            border: '1px solid rgba(226, 232, 240, 0.95)',
+            boxShadow: '0 20px 45px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.06)',
+            padding: '16px',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.5px' }}>
+            Eraser Mode
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Option A: Complete Erase with Vacuum Cleaner Emoji 🧹 */}
+            <button
+              onClick={handleSelectCompleteEraser}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '14px',
+                border: (activeTool === 'eraser' && eraserMode === 'complete') ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                background: (activeTool === 'eraser' && eraserMode === 'complete') ? '#eff6ff' : '#f8fafc',
+                color: (activeTool === 'eraser' && eraserMode === 'complete') ? '#1d4ed8' : '#334155',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                textAlign: 'left',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>🧹</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Complete Erase</div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Erase full strokes & shapes</div>
+              </div>
+            </button>
+
+            {/* Option B: Selective Erase */}
+            <button
+              onClick={handleSelectSelectiveEraser}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '14px',
+                border: (eraserMode === 'selective') ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                background: (eraserMode === 'selective') ? '#eff6ff' : '#f8fafc',
+                color: (eraserMode === 'selective') ? '#1d4ed8' : '#334155',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>✂️</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Selective Erasing</div>
+                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Erase small tiny spaces precisely</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Integrated Style & Color Palette Popover (Picture 1 Match) */}
       {stylePanelOpen && (
@@ -2500,7 +2660,7 @@ function ConversionToolbar() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* Top Right Option for Fullscreen (F.S) */}
                 <button
-                  onClick={() => setClockStage('fullscreen')}
+                  onClick={handleEnterFullscreenClock}
                   style={{
                     padding: '5px 12px', background: 'rgba(255, 255, 255, 0.12)',
                     color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
@@ -2652,7 +2812,7 @@ function ConversionToolbar() {
 
           {/* Top Right Option to Exit Fullscreen */}
           <button
-            onClick={() => setClockStage('exam_panel')}
+            onClick={handleExitFullscreenClock}
             style={{
               position: 'fixed', top: '24px', right: '24px', zIndex: 10001,
               padding: '10px 20px', background: 'rgba(255, 255, 255, 0.12)',

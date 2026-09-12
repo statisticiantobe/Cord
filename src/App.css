@@ -125,8 +125,7 @@ button:active {
 }
 
 .movable-clock-widget {
-  background: rgba(15, 23, 42, 0.94);
-  backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, 0.97);
   color: #ffffff;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(56, 189, 248, 0.2);
