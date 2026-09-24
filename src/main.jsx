@@ -1,6 +1,14 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import { LicenseManager } from 'tldraw';
+
+if (LicenseManager && LicenseManager.prototype) {
+  LicenseManager.prototype.getIsDevelopment = function () {
+    return true;
+  };
+}
+
 
 const isMobileRoute = window.location.search.includes('mobileCam=true') || window.location.pathname.includes('/mobile');
 

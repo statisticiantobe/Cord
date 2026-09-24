@@ -1032,7 +1032,168 @@ function ConversionToolbar() {
     };
   }, [notebookLinesOn]);
 
-  // Perform Handwriting -> Math Equation Conversion
+  // Helper: Extract actual high-resolution ink stroke points & bounds from tldraw draw shapes
+  const extractStrokesFromShapes = (shapesToExtract) => {
+    if (!editor || !shapesToExtract || shapesToExtract.length === 0) {
+      return { strokes: [], minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0, drawnWidth: 0, drawnHeight: 0 };
+    }
+
+    // Sort shapes spatially (top-to-bottom, left-to-right) so handwriting stroke sequence is in reading order
+    const sortedShapes = [...shapesToExtract].sort((a, b) => {
+      const boundsA = editor.getShapePageBounds(a);
+      const boundsB = editor.getShapePageBounds(b);
+      const topA = boundsA ? boundsA.y : a.y;
+      const topB = boundsB ? boundsB.y : b.y;
+      if (Math.abs(topA - topB) > 35) return topA - topB;
+      const leftA = boundsA ? boundsA.x : a.x;
+      const leftB = boundsB ? boundsB.y : b.y;
+      return leftA - leftB;
+    });
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const rawStrokes = [];
+
+    sortedShapes.forEach(shape => {
+      const bounds = editor.getShapePageBounds(shape);
+      const pageX = shape.x || 0;
+      const pageY = shape.y || 0;
+
+      if (bounds) {
+        if (bounds.x < minX) minX = bounds.x;
+        if (bounds.y < minY) minY = bounds.y;
+        if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
+        if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
+      }
+
+      // Check tldraw stroke segments (shape.props.segments)
+      const segments = shape.props?.segments;
+      if (Array.isArray(segments) && segments.length > 0) {
+        segments.forEach(seg => {
+          if (Array.isArray(seg.points) && seg.points.length > 0) {
+            const xArr = [];
+            const yArr = [];
+            seg.points.forEach(pt => {
+              const absX = Math.round(pageX + pt.x);
+              const absY = Math.round(pageY + pt.y);
+              if (absX < minX) minX = absX;
+              if (absY < minY) minY = absY;
+              if (absX > maxX) maxX = absX;
+              if (absY > maxY) maxY = absY;
+              xArr.push(absX);
+              yArr.push(absY);
+            });
+            if (xArr.length > 0) {
+              rawStrokes.push({ x: xArr, y: yArr });
+            }
+          }
+        });
+      } else if (Array.isArray(shape.props?.points) && shape.props.points.length > 0) {
+        const xArr = [];
+        const yArr = [];
+        shape.props.points.forEach(pt => {
+          const absX = Math.round(pageX + pt.x);
+          const absY = Math.round(pageY + pt.y);
+          if (absX < minX) minX = absX;
+          if (absY < minY) minY = absY;
+          if (absX > maxX) maxX = absX;
+          if (absY > maxY) maxY = absY;
+          xArr.push(absX);
+          yArr.push(absY);
+        });
+        if (xArr.length > 0) {
+          rawStrokes.push({ x: xArr, y: yArr });
+        }
+      } else {
+        // Fallback to shape geometry vertices
+        try {
+          const geometry = editor.getShapeGeometry(shape);
+          if (geometry) {
+            const pts = geometry.vertices || geometry.points;
+            if (Array.isArray(pts) && pts.length > 0) {
+              const xArr = [];
+              const yArr = [];
+              pts.forEach(pt => {
+                const absX = Math.round(pageX + pt.x);
+                const absY = Math.round(pageY + pt.y);
+                if (absX < minX) minX = absX;
+                if (absY < minY) minY = absY;
+                if (absX > maxX) maxX = absX;
+                if (absY > maxY) maxY = absY;
+                xArr.push(absX);
+                yArr.push(absY);
+              });
+              if (xArr.length > 0) rawStrokes.push({ x: xArr, y: yArr });
+            }
+          }
+        } catch (e) { }
+      }
+    });
+
+    if (minX === Infinity) minX = 0;
+    if (minY === Infinity) minY = 0;
+    if (maxX === -Infinity) maxX = minX + 100;
+    if (maxY === -Infinity) maxY = minY + 50;
+
+    const drawnWidth = Math.max(30, maxX - minX);
+    const drawnHeight = Math.max(20, maxY - minY);
+
+    // Normalize stroke coordinates to padded bounding box starting at (30, 30)
+    const normalizedStrokes = rawStrokes.map(st => ({
+      x: st.x.map(px => Math.round(px - minX + 30)),
+      y: st.y.map(py => Math.round(py - minY + 30))
+    }));
+
+    const normWidth = Math.ceil(drawnWidth + 60);
+    const normHeight = Math.ceil(drawnHeight + 60);
+
+    return {
+      strokes: normalizedStrokes,
+      rawStrokes,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      drawnWidth,
+      drawnHeight,
+      width: normWidth,
+      height: normHeight
+    };
+  };
+
+  const cleanLatexFormula = (rawText) => {
+    if (!rawText) return "";
+    let str = rawText.trim();
+    if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+      str = str.slice(1, -1).trim();
+    }
+    if (str.startsWith('\\[') && str.endsWith('\\]')) {
+      str = str.slice(2, -2).trim();
+    } else if (str.startsWith('\\(') && str.endsWith('\\)')) {
+      str = str.slice(2, -2).trim();
+    } else if (str.startsWith('$$') && str.endsWith('$$')) {
+      str = str.slice(2, -2).trim();
+    }
+    return str;
+  };
+
+  const createFallbackMathSvg = (latexStr, w, h) => {
+    const escaped = latexStr
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const svgWidth = Math.max(120, Math.round(w));
+    const svgHeight = Math.max(40, Math.round(h));
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
+      <rect width="100%" height="100%" fill="none"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#0f172a" font-family="Cambria Math, STIX Two Math, KaTeX_Math, Times New Roman, serif" font-size="${Math.max(16, Math.min(32, Math.round(svgHeight * 0.5)))}px" font-weight="600">${escaped}</text>
+    </svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  };
+
   // Perform Handwriting -> Math Equation Conversion
   const convertSelectedStrokesToMath = async () => {
     if (!editor || isConvertingRef.current) return;
@@ -1045,39 +1206,11 @@ function ConversionToolbar() {
     }
 
     isConvertingRef.current = true;
+    showNotification('✍️ Identifying handwriting & math equation...');
 
     try {
-      let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
-      const strokes = [];
-      shapesToConvert.forEach(shape => {
-        const bounds = editor.getShapePageBounds(shape);
-        if (bounds) {
-          if (bounds.x < minX) minX = bounds.x;
-          if (bounds.y < minY) minY = bounds.y;
-          if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
-          if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
-        }
-
-        const pageX = shape.x;
-        const pageY = shape.y;
-        let xArr = [];
-        let yArr = [];
-        try {
-          const geometry = editor.getShapeGeometry(shape);
-          if (geometry && geometry.vertices) {
-            geometry.vertices.forEach(pt => {
-              const vx = pageX + pt.x;
-              const vy = pageY + pt.y;
-              xArr.push(Math.round(vx));
-              yArr.push(Math.round(vy));
-            });
-          }
-        } catch (e) { }
-        if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
-      });
-
-      const drawnWidth = Math.max(30, maxX - minX);
-      const drawnHeight = Math.max(20, maxY - minY);
+      const extracted = extractStrokesFromShapes(shapesToConvert);
+      const { strokes, minX, minY, drawnWidth, drawnHeight, width, height } = extracted;
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
@@ -1086,8 +1219,8 @@ function ConversionToolbar() {
       }
 
       const payload = {
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width: width,
+        height: height,
         contentType: "Math",
         strokeGroups: [{ strokes: strokes }]
       };
@@ -1107,63 +1240,72 @@ function ConversionToolbar() {
       });
 
       if (response.ok) {
-        const latexStr = (await response.text()).trim();
+        const rawLatex = await response.text();
+        const latexStr = cleanLatexFormula(rawLatex);
+
         if (latexStr) {
           editor.deleteShapes(shapesToConvert.map(s => s.id));
 
           const imageUrl = "https://latex.codecogs.com/svg.image?" + encodeURIComponent(latexStr);
 
-          const img = new window.Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : (drawnWidth / drawnHeight);
+          const renderImageOnCanvas = (srcUrl) => {
+            const img = new window.Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+              const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : (drawnWidth / drawnHeight);
 
-            let scaleMult = 1.0;
-            if (selectedSize === 'small') scaleMult = 0.8;
-            if (selectedSize === 'normal' || selectedSize === 'auto') scaleMult = 1.0;
-            if (selectedSize === 'large') scaleMult = 1.25;
-            if (selectedSize === 'xlarge') scaleMult = 1.6;
+              let scaleMult = 1.0;
+              if (selectedSize === 'small') scaleMult = 0.8;
+              if (selectedSize === 'normal' || selectedSize === 'auto') scaleMult = 1.0;
+              if (selectedSize === 'large') scaleMult = 1.25;
+              if (selectedSize === 'xlarge') scaleMult = 1.6;
 
-            // Target size to match user's exact hand-drawn strokes bounding box
-            let targetHeight = drawnHeight * scaleMult;
-            let displayHeight = Math.max(18, Math.round(targetHeight));
-            let displayWidth = Math.max(24, Math.round(displayHeight * aspect));
+              let targetHeight = drawnHeight * scaleMult;
+              let displayHeight = Math.max(22, Math.round(targetHeight));
+              let displayWidth = Math.max(30, Math.round(displayHeight * aspect));
 
-            // Ensure width scaling matches the user's handwriting box exactly
-            const targetWidth = drawnWidth * scaleMult;
-            if (displayWidth > targetWidth * 1.25) {
-              displayWidth = Math.max(24, Math.round(targetWidth));
-              displayHeight = Math.max(18, Math.round(displayWidth / aspect));
-            }
+              const targetWidth = drawnWidth * scaleMult;
+              if (displayWidth > targetWidth * 1.35) {
+                displayWidth = Math.max(30, Math.round(targetWidth));
+                displayHeight = Math.max(22, Math.round(displayWidth / aspect));
+              }
 
-            // Align equation precisely over user's hand-drawn bounding box center
-            const posX = minX + Math.max(0, (drawnWidth - displayWidth) / 2);
-            const posY = minY + Math.max(0, (drawnHeight - displayHeight) / 2);
+              const posX = minX + Math.max(0, (drawnWidth - displayWidth) / 2);
+              const posY = minY + Math.max(0, (drawnHeight - displayHeight) / 2);
 
-            const assetId = AssetRecordType.createId();
-            const newShapeId = createShapeId();
+              const assetId = AssetRecordType.createId();
+              const newShapeId = createShapeId();
 
-            editor.store.put([{
-              id: assetId, typeName: 'asset', type: 'image', meta: {},
-              props: { w: displayWidth, h: displayHeight, name: latexStr, isAnimated: false, mimeType: 'image/svg+xml', src: imageUrl }
-            }]);
+              editor.store.put([{
+                id: assetId, typeName: 'asset', type: 'image', meta: {},
+                props: { w: displayWidth, h: displayHeight, name: latexStr, isAnimated: false, mimeType: 'image/svg+xml', src: srcUrl }
+              }]);
 
-            editor.createShape({
-              id: newShapeId,
-              type: 'image', x: posX, y: posY,
-              meta: { isEquation: true, latex: latexStr },
-              props: { assetId: assetId, w: displayWidth, h: displayHeight }
-            });
+              editor.createShape({
+                id: newShapeId,
+                type: 'image', x: posX, y: posY,
+                meta: { isEquation: true, latex: latexStr },
+                props: { assetId: assetId, w: displayWidth, h: displayHeight }
+              });
 
-            setNotesPreview(prev => [...prev, { type: 'math', content: latexStr }]);
-            isConvertingRef.current = false;
+              setNotesPreview(prev => [...prev, { type: 'math', content: latexStr }]);
+              showNotification(`✨ Math Recognized: ${latexStr}`);
+              isConvertingRef.current = false;
+            };
+
+            img.onerror = () => {
+              // If CodeCogs fails, fallback to local SVG math renderer
+              if (srcUrl !== createFallbackMathSvg(latexStr, drawnWidth, drawnHeight)) {
+                renderImageOnCanvas(createFallbackMathSvg(latexStr, drawnWidth, drawnHeight));
+              } else {
+                showNotification('⚠️ Image render error.');
+                isConvertingRef.current = false;
+              }
+            };
+            img.src = srcUrl;
           };
 
-          img.onerror = () => {
-            showNotification('⚠️ Image render error.');
-            isConvertingRef.current = false;
-          };
-          img.src = imageUrl;
+          renderImageOnCanvas(imageUrl);
         } else {
           showNotification('⚠️ No math recognized.');
           isConvertingRef.current = false;
@@ -1191,42 +1333,21 @@ function ConversionToolbar() {
     }
 
     isConvertingRef.current = true;
+    showNotification('✍️ Identifying handwriting text...');
 
     try {
-      let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
-      const strokes = [];
-      shapesToConvert.forEach(shape => {
-        const bounds = editor.getShapePageBounds(shape);
-        if (bounds) {
-          if (bounds.x < minX) minX = bounds.x;
-          if (bounds.y < minY) minY = bounds.y;
-          if (bounds.x + bounds.w > maxX) maxX = bounds.x + bounds.w;
-          if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
-        }
+      const extracted = extractStrokesFromShapes(shapesToConvert);
+      const { strokes, minX, minY, drawnHeight, width, height } = extracted;
 
-        const pageX = shape.x;
-        const pageY = shape.y;
-        let xArr = [];
-        let yArr = [];
-        try {
-          const geometry = editor.getShapeGeometry(shape);
-          if (geometry && geometry.vertices) {
-            geometry.vertices.forEach(pt => {
-              const vx = pageX + pt.x;
-              const vy = pageY + pt.y;
-              xArr.push(Math.round(vx));
-              yArr.push(Math.round(vy));
-            });
-          }
-        } catch (e) { }
-        if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
-      });
-
-      const drawnHeight = Math.max(16, maxY - minY);
+      if (strokes.length === 0) {
+        isConvertingRef.current = false;
+        showNotification('⚠️ Could not extract stroke points.');
+        return;
+      }
 
       const payload = {
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width: width,
+        height: height,
         contentType: "Text",
         strokeGroups: [{ strokes: strokes }]
       };
@@ -1300,6 +1421,7 @@ function ConversionToolbar() {
           }, 20);
 
           setNotesPreview(prev => [...prev, { type: 'text', content: recognizedText }]);
+          showNotification(`✨ Text Recognized: ${recognizedText}`);
         } else {
           showNotification('⚠️ No text recognized.');
         }
@@ -1533,26 +1655,12 @@ function ConversionToolbar() {
     const drawShapes = allShapes.filter(s => s.type === 'draw');
     if (drawShapes.length > 0) {
       try {
-        const strokes = [];
-        drawShapes.forEach(shape => {
-          const pageX = shape.x;
-          const pageY = shape.y;
-          let xArr = []; let yArr = [];
-          try {
-            const geometry = editor.getShapeGeometry(shape);
-            if (geometry && geometry.vertices) {
-              geometry.vertices.forEach(pt => {
-                xArr.push(Math.round(pageX + pt.x));
-                yArr.push(Math.round(pageY + pt.y));
-              });
-            }
-          } catch (e) { }
-          if (xArr.length > 0) strokes.push({ x: xArr, y: yArr });
-        });
+        const extracted = extractStrokesFromShapes(drawShapes);
+        const { strokes, width, height } = extracted;
 
         if (strokes.length > 0) {
           const payload = {
-            width: window.innerWidth, height: window.innerHeight,
+            width: width, height: height,
             contentType: "Text", strokeGroups: [{ strokes: strokes }]
           };
           const stringifiedBody = JSON.stringify(payload);
