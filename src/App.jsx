@@ -289,6 +289,77 @@ function AnalogClockView({ date, size = 180, isGlow = true }) {
   );
 }
 
+const formatHHMM = (date) => {
+  let h = date.getHours();
+  const m = String(date.getMinutes()).padStart(2, '0');
+  h = h % 12 || 12;
+  return `${String(h).padStart(2, '0')}:${m}`;
+};
+const formatSS = (date) => String(date.getSeconds()).padStart(2, '0');
+const formatAMPM = (date) => (date.getHours() >= 12 ? 'PM' : 'AM');
+
+const formatDuration = (totalSec) => {
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hrs > 0) {
+    return `${hrs}h ${mins}m ${secs}s`;
+  }
+  return `${mins}m ${secs}s`;
+};
+
+function calculateExamProgress(nowDate, examActive, examStartTime, examEndTime) {
+  if (!examActive || !examStartTime || !examEndTime) {
+    return { active: false, progressPct: 0, color: '#22c55e', remainingText: '', status: 'no_exam' };
+  }
+
+  const today = nowDate || new Date();
+  const [startH, startM] = examStartTime.split(':').map(Number);
+  const [endH, endM] = examEndTime.split(':').map(Number);
+
+  const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), startH, startM, 0);
+  let endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), endH, endM, 0);
+
+  if (endDate <= startDate) {
+    endDate.setDate(endDate.getDate() + 1);
+  }
+
+  const nowMs = today.getTime();
+  const startMs = startDate.getTime();
+  const endMs = endDate.getTime();
+
+  if (nowMs < startMs) {
+    const waitSec = Math.round((startMs - nowMs) / 1000);
+    return { active: true, progressPct: 0, color: '#22c55e', remainingText: `Starts in ${formatDuration(waitSec)}`, status: 'upcoming' };
+  }
+
+  if (nowMs >= endMs) {
+    return { active: true, progressPct: 100, color: '#ef4444', remainingText: 'Exam Completed!', status: 'completed' };
+  }
+
+  const totalDuration = endMs - startMs;
+  const elapsed = nowMs - startMs;
+  const pct = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+  const remainingSec = Math.round((endMs - nowMs) / 1000);
+
+  let barColor = '#22c55e'; // Green
+  if (pct >= 85) {
+    barColor = '#ef4444'; // Red
+  } else if (pct >= 60) {
+    barColor = '#f97316'; // Orange
+  } else if (pct >= 30) {
+    barColor = '#eab308'; // Yellow
+  }
+
+  return {
+    active: true,
+    progressPct: pct,
+    color: barColor,
+    remainingText: `${formatDuration(remainingSec)} remaining`,
+    status: 'in_progress'
+  };
+}
+
 const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
   const [time, setTime] = useState(new Date());
 
@@ -296,13 +367,6 @@ const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const formatHHMM = (date) => {
-    let h = date.getHours();
-    const m = String(date.getMinutes()).padStart(2, '0');
-    h = h % 12 || 12;
-    return `${String(h).padStart(2, '0')}:${m}`;
-  };
 
   return (
     <button
@@ -322,6 +386,283 @@ const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
       <span style={{ fontSize: '13px' }}>🕒</span>
       <span>{formatHHMM(time)}</span>
     </button>
+  );
+});
+
+const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
+  examStartTime,
+  setExamStartTime,
+  examEndTime,
+  setExamEndTime,
+  examActive,
+  handleApplyExamSchedule,
+  handleEnterFullscreenClock,
+  onClose
+}) {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const progress = calculateExamProgress(now, examActive, examStartTime, examEndTime);
+
+  return (
+    <div style={{
+      position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+      zIndex: 9999999, width: '430px', maxWidth: '92vw',
+      background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(30px)',
+      borderRadius: '28px', border: '1px solid rgba(255, 255, 255, 0.15)',
+      boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 35px rgba(56, 189, 248, 0.2)',
+      padding: '24px', color: 'white', overflow: 'hidden'
+    }}>
+      <div className="ios-live-wallpaper-bg">
+        <div className="ios-blob-1"></div>
+        <div className="ios-blob-2"></div>
+      </div>
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div style={{ fontSize: '14px', fontWeight: '800', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>🕒</span> Exam Timer
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={handleEnterFullscreenClock}
+              style={{
+                padding: '5px 12px', background: 'rgba(255, 255, 255, 0.12)',
+                color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '9999px', fontSize: '11px', fontWeight: '800',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                backdropFilter: 'blur(10px)', transition: 'all 0.15s ease'
+              }}
+              title="Expand to Fullscreen"
+            >
+              ⛶ Fullscreen
+            </button>
+            <button
+              onClick={onClose}
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', width: '28px', height: '28px', borderRadius: '50%', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', margin: '14px 0 20px' }}>
+          <div className="iphone-time-text" style={{ fontSize: '54px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 30px rgba(56, 189, 248, 0.7), 0 4px 16px rgba(0,0,0,0.5)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
+            <span style={{ display: 'inline-block', width: '38px', textAlign: 'left', fontSize: '22px', fontWeight: '800', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
+            <span style={{ display: 'inline-block', width: '32px', textAlign: 'left', fontSize: '18px', fontWeight: '800', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>
+          </div>
+          <div style={{ fontSize: '13px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.85)', marginTop: '8px', letterSpacing: '0.5px' }}>
+            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(12px)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.12)', marginBottom: '16px' }}>
+          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.5px' }}>
+            ⏱ Exam Schedule Settings
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#cbd5e1', marginBottom: '3px' }}>Start Time</label>
+              <input
+                type="time"
+                value={examStartTime}
+                onChange={(e) => setExamStartTime(e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15, 23, 42, 0.8)', color: 'white', fontSize: '12px', fontWeight: '700', outline: 'none' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#cbd5e1', marginBottom: '3px' }}>Ending Time</label>
+              <input
+                type="time"
+                value={examEndTime}
+                onChange={(e) => setExamEndTime(e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15, 23, 42, 0.8)', color: 'white', fontSize: '12px', fontWeight: '700', outline: 'none' }}
+              />
+            </div>
+
+            <button
+              onClick={handleApplyExamSchedule}
+              style={{
+                padding: '7px 16px', height: '33px', background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '900',
+                cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)', transition: 'transform 0.15s ease'
+              }}
+            >
+              OK
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+              setExamStartTime(nowStr);
+            }}
+            style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '8px', padding: 0 }}
+          >
+            ⚡ Set Start to Current Time ({formatHHMM(now)})
+          </button>
+        </div>
+
+        {!progress.active ? (
+          <div style={{ background: 'rgba(255, 255, 255, 0.06)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b' }}>
+            Enter Exam Start & End times and click OK to start progress bar.
+          </div>
+        ) : progress.status === 'completed' ? (
+          <div style={{
+            background: 'rgba(34, 197, 94, 0.12)', padding: '16px', borderRadius: '18px',
+            border: '2px solid #22c55e', boxShadow: '0 0 25px rgba(34, 197, 94, 0.35)',
+            textAlign: 'center'
+          }}>
+            <div className="time-up-pulsate">🚨 TIME UP!</div>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#86efac', marginTop: '4px' }}>Exam schedule has concluded.</div>
+          </div>
+        ) : (
+          <div style={{ background: 'rgba(255, 255, 255, 0.06)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '11px', fontWeight: '800' }}>
+              <span style={{ color: '#94a3b8' }}>Exam Progress</span>
+              <span style={{ color: progress.color }}>{`${progress.progressPct.toFixed(0)}%`}</span>
+            </div>
+
+            <div style={{ width: '100%', height: '12px', background: 'rgba(255, 255, 255, 0.12)', borderRadius: '9999px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
+              <div style={{
+                width: `${progress.progressPct}%`,
+                height: '100%',
+                background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
+                borderRadius: '9999px',
+                boxShadow: `0 0 12px ${progress.color}`,
+                transition: 'width 0.4s ease, background 0.4s ease'
+              }} />
+            </div>
+
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#cbd5e1', marginTop: '8px', textAlign: 'center' }}>
+              {progress.remainingText}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const FullscreenClockView = React.memo(function FullscreenClockView({
+  examStartTime,
+  examEndTime,
+  examActive,
+  handleExitFullscreenClock
+}) {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const progress = calculateExamProgress(now, examActive, examStartTime, examEndTime);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 99999999,
+      background: '#070b14', color: 'white',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', userSelect: 'none', overflow: 'hidden'
+    }}>
+      <div className="ios-live-wallpaper-bg">
+        <div className="ios-blob-1" style={{ filter: 'blur(90px)', opacity: 0.85 }} />
+        <div className="ios-blob-2" style={{ filter: 'blur(100px)', opacity: 0.75 }} />
+      </div>
+
+      <button
+        onClick={handleExitFullscreenClock}
+        style={{
+          position: 'fixed', top: '24px', right: '24px', zIndex: 10001,
+          padding: '10px 20px', background: 'rgba(255, 255, 255, 0.12)',
+          color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
+          borderRadius: '9999px', fontSize: '13px', fontWeight: '800',
+          cursor: 'pointer', backdropFilter: 'blur(20px)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)', transition: 'all 0.15s ease'
+        }}
+      >
+        ✕ Exit Fullscreen
+      </button>
+
+      <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ userSelect: 'none' }}>
+          <div className="iphone-time-text" style={{
+            fontSize: '185px', fontWeight: '900', color: '#ffffff',
+            textShadow: '0 0 80px rgba(56, 189, 248, 0.9), 0 0 30px rgba(56, 189, 248, 0.6), 0 10px 40px rgba(0,0,0,0.7)',
+            lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center'
+          }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
+            <span style={{
+              display: 'inline-block', width: '110px', textAlign: 'left',
+              fontSize: '64px', fontWeight: '800', color: '#38bdf8',
+              fontVariantNumeric: 'tabular-nums', marginLeft: '10px'
+            }}>:{formatSS(now)}</span>
+            <span style={{
+              display: 'inline-block', width: '80px', textAlign: 'left',
+              fontSize: '48px', fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
+            }}>{formatAMPM(now)}</span>
+          </div>
+
+          <div style={{
+            fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
+            marginTop: '20px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
+          }}>
+            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          </div>
+        </div>
+
+        {progress.active && (
+          <div style={{
+            marginTop: '36px', width: '480px', maxWidth: '85vw',
+            background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(20px)',
+            padding: '20px 24px', borderRadius: '24px',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          }}>
+            {progress.status === 'completed' ? (
+              <div style={{
+                background: 'rgba(34, 197, 94, 0.15)', backdropFilter: 'blur(30px)',
+                padding: '20px 24px', borderRadius: '24px',
+                border: '2px solid #22c55e', boxShadow: '0 0 35px rgba(34, 197, 94, 0.4)',
+                textAlign: 'center'
+              }}>
+                <div className="time-up-pulsate" style={{ fontSize: '32px', letterSpacing: '2px' }}>🚨 TIME UP!</div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#86efac', marginTop: '6px' }}>Exam schedule has concluded.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', fontSize: '14px', fontWeight: '800' }}>
+                  <span style={{ color: '#94a3b8' }}>Exam Progress</span>
+                  <span style={{ color: progress.color, fontSize: '18px' }}>{`${progress.progressPct.toFixed(0)}%`}</span>
+                </div>
+
+                <div style={{ width: '100%', height: '16px', background: 'rgba(255, 255, 255, 0.12)', borderRadius: '9999px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.15)', position: 'relative' }}>
+                  <div style={{
+                    width: `${progress.progressPct}%`,
+                    height: '100%',
+                    background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
+                    borderRadius: '9999px',
+                    boxShadow: `0 0 16px ${progress.color}`,
+                    transition: 'width 0.4s ease, background 0.4s ease'
+                  }} />
+                </div>
+
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#ffffff', marginTop: '12px', letterSpacing: '0.5px' }}>
+                  {progress.remainingText}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 });
 
@@ -506,7 +847,6 @@ function ConversionToolbar() {
   const [clockMode, setClockMode] = useState('digital');
   const [examStartTime, setExamStartTime] = useState('09:00');
   const [examEndTime, setExamEndTime] = useState('12:00');
-  const [now, setNow] = useState(new Date());
 
   const handleEnterFullscreenClock = () => {
     setClockStage('fullscreen');
@@ -614,67 +954,7 @@ function ConversionToolbar() {
   const [examActive, setExamActive] = useState(false);
   const [isTimeExpanded, setIsTimeExpanded] = useState(false);
 
-  const formatDuration = (totalSec) => {
-    const hrs = Math.floor(totalSec / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
-    }
-    return `${mins}m ${secs}s`;
-  };
 
-  const calculateExamProgress = () => {
-    if (!examActive || !examStartTime || !examEndTime) {
-      return { active: false, progressPct: 0, color: '#22c55e', remainingText: '', status: 'no_exam' };
-    }
-
-    const today = new Date();
-    const [startH, startM] = examStartTime.split(':').map(Number);
-    const [endH, endM] = examEndTime.split(':').map(Number);
-
-    const startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), startH, startM, 0);
-    let endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), endH, endM, 0);
-
-    if (endDate <= startDate) {
-      endDate.setDate(endDate.getDate() + 1);
-    }
-
-    const nowMs = today.getTime();
-    const startMs = startDate.getTime();
-    const endMs = endDate.getTime();
-
-    if (nowMs < startMs) {
-      const waitSec = Math.round((startMs - nowMs) / 1000);
-      return { active: true, progressPct: 0, color: '#22c55e', remainingText: `Starts in ${formatDuration(waitSec)}`, status: 'upcoming' };
-    }
-
-    if (nowMs >= endMs) {
-      return { active: true, progressPct: 100, color: '#ef4444', remainingText: 'Exam Completed!', status: 'completed' };
-    }
-
-    const totalDuration = endMs - startMs;
-    const elapsed = nowMs - startMs;
-    const pct = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-    const remainingSec = Math.round((endMs - nowMs) / 1000);
-
-    let barColor = '#22c55e'; // Green
-    if (pct >= 85) {
-      barColor = '#ef4444'; // Red
-    } else if (pct >= 60) {
-      barColor = '#f97316'; // Orange
-    } else if (pct >= 30) {
-      barColor = '#eab308'; // Yellow
-    }
-
-    return {
-      active: true,
-      progressPct: pct,
-      color: barColor,
-      remainingText: `${formatDuration(remainingSec)} remaining`,
-      status: 'in_progress'
-    };
-  };
 
   const handleApplyExamSchedule = () => {
     if (!examStartTime || !examEndTime) {
@@ -789,11 +1069,7 @@ function ConversionToolbar() {
     };
   }, [boardColorDropdownOpen]);
 
-  // Clock Ticker
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, []);
+
 
   // 5-Minute Mobile Session Countdown Ticker
   useEffect(() => {
@@ -1899,14 +2175,7 @@ function ConversionToolbar() {
     } catch (e) { }
   };
 
-  const formatHHMM = (date) => {
-    let h = date.getHours();
-    const m = String(date.getMinutes()).padStart(2, '0');
-    h = h % 12 || 12;
-    return `${String(h).padStart(2, '0')}:${m}`;
-  };
-  const formatSS = (date) => String(date.getSeconds()).padStart(2, '0');
-  const formatAMPM = (date) => (date.getHours() >= 12 ? 'PM' : 'AM');
+
 
   return (
     <>
@@ -2628,278 +2897,26 @@ function ConversionToolbar() {
 
       {/* 2. STAGE 2: AESTHETIC CLOCK & EXAM TIMER DIALOG MODAL */}
       {clockStage === 'exam_panel' && (
-        <div style={{
-          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 9999999, width: '430px', maxWidth: '92vw',
-          background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(30px)',
-          borderRadius: '28px', border: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 35px rgba(56, 189, 248, 0.2)',
-          padding: '24px', color: 'white', overflow: 'hidden'
-        }}>
-          {/* iOS Animated Moving Blurred Blue Live Wallpaper Background across Modal */}
-          <div className="ios-live-wallpaper-bg">
-            <div className="ios-blob-1"></div>
-            <div className="ios-blob-2"></div>
-          </div>
-
-          {/* Dialog Content Wrapper */}
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            {/* Top Bar with Title, Fullscreen (F.S) Button, and Close Button */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🕒</span> Exam Timer
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {/* Top Right Option for Fullscreen (F.S) */}
-                <button
-                  onClick={handleEnterFullscreenClock}
-                  style={{
-                    padding: '5px 12px', background: 'rgba(255, 255, 255, 0.12)',
-                    color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
-                    borderRadius: '9999px', fontSize: '11px', fontWeight: '800',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                    backdropFilter: 'blur(10px)', transition: 'all 0.15s ease'
-                  }}
-                  title="Expand to Fullscreen"
-                >
-                  ⛶ Fullscreen
-                </button>
-                <button
-                  onClick={() => setClockStage('badge')}
-                  style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', width: '28px', height: '28px', borderRadius: '50%', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* iPhone Style Extra-Bold Digital Time Display */}
-            <div style={{ textAlign: 'center', margin: '14px 0 20px' }}>
-              <div className="iphone-time-text" style={{ fontSize: '54px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 30px rgba(56, 189, 248, 0.7), 0 4px 16px rgba(0,0,0,0.5)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-                <span style={{ display: 'inline-block', width: '38px', textAlign: 'left', fontSize: '22px', fontWeight: '800', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
-                <span style={{ display: 'inline-block', width: '32px', textAlign: 'left', fontSize: '18px', fontWeight: '800', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.85)', marginTop: '8px', letterSpacing: '0.5px' }}>
-                {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-              </div>
-            </div>
-
-            {/* Exam Start and Ending Time Inputs + OK Button */}
-            <div style={{ background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(12px)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.12)', marginBottom: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.5px' }}>
-                ⏱ Exam Schedule Settings
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#cbd5e1', marginBottom: '3px' }}>Start Time</label>
-                  <input
-                    type="time"
-                    value={examStartTime}
-                    onChange={(e) => setExamStartTime(e.target.value)}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15, 23, 42, 0.8)', color: 'white', fontSize: '12px', fontWeight: '700', outline: 'none' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '10px', fontWeight: '700', color: '#cbd5e1', marginBottom: '3px' }}>Ending Time</label>
-                  <input
-                    type="time"
-                    value={examEndTime}
-                    onChange={(e) => setExamEndTime(e.target.value)}
-                    style={{ width: '100%', padding: '7px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(15, 23, 42, 0.8)', color: 'white', fontSize: '12px', fontWeight: '700', outline: 'none' }}
-                  />
-                </div>
-
-                <button
-                  onClick={handleApplyExamSchedule}
-                  style={{
-                    padding: '7px 16px', height: '33px', background: 'linear-gradient(135deg, #10b981, #059669)',
-                    color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '900',
-                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)', transition: 'transform 0.15s ease'
-                  }}
-                >
-                  OK
-                </button>
-              </div>
-
-              {/* Set Start = Now quick button */}
-              <button
-                onClick={() => {
-                  const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                  setExamStartTime(nowStr);
-                }}
-                style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '8px', padding: 0 }}
-              >
-                ⚡ Set Start to Current Time ({formatHHMM(now)})
-              </button>
-            </div>
-
-            {/* Progress Bar OR TIME UP! Box with Green Border */}
-            {(() => {
-              const progress = calculateExamProgress();
-              if (!progress.active) {
-                return (
-                  <div style={{ background: 'rgba(255, 255, 255, 0.06)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b' }}>
-                    Enter Exam Start & End times and click OK to start progress bar.
-                  </div>
-                );
-              }
-
-              if (progress.status === 'completed') {
-                return (
-                  <div style={{
-                    background: 'rgba(34, 197, 94, 0.12)', padding: '16px', borderRadius: '18px',
-                    border: '2px solid #22c55e', boxShadow: '0 0 25px rgba(34, 197, 94, 0.35)',
-                    textAlign: 'center'
-                  }}>
-                    <div className="time-up-pulsate">🚨 TIME UP!</div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#86efac', marginTop: '4px' }}>Exam schedule has concluded.</div>
-                  </div>
-                );
-              }
-
-              return (
-                <div style={{ background: 'rgba(255, 255, 255, 0.06)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '11px', fontWeight: '800' }}>
-                    <span style={{ color: '#94a3b8' }}>Exam Progress</span>
-                    <span style={{ color: progress.color }}>{`${progress.progressPct.toFixed(0)}%`}</span>
-                  </div>
-
-                  {/* Progress Bar Container */}
-                  <div style={{ width: '100%', height: '12px', background: 'rgba(255, 255, 255, 0.12)', borderRadius: '9999px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', position: 'relative' }}>
-                    <div style={{
-                      width: `${progress.progressPct}%`,
-                      height: '100%',
-                      background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
-                      borderRadius: '9999px',
-                      boxShadow: `0 0 12px ${progress.color}`,
-                      transition: 'width 0.4s ease, background 0.4s ease'
-                    }} />
-                  </div>
-
-                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#cbd5e1', marginTop: '8px', textAlign: 'center' }}>
-                    {progress.remainingText}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        <ExamTimerModalContent
+          examStartTime={examStartTime}
+          setExamStartTime={setExamStartTime}
+          examEndTime={examEndTime}
+          setExamEndTime={setExamEndTime}
+          examActive={examActive}
+          handleApplyExamSchedule={handleApplyExamSchedule}
+          handleEnterFullscreenClock={handleEnterFullscreenClock}
+          onClose={() => setClockStage('badge')}
+        />
       )}
 
       {/* 3. STAGE 3: FULLSCREEN MODE WITH FULL BG MOVING BLUE WALLPAPER & GREEN BORDER TIME UP BOX */}
       {clockStage === 'fullscreen' && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 99999999,
-          background: '#070b14', color: 'white',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '24px', userSelect: 'none', overflow: 'hidden'
-        }}>
-          {/* iOS Animated Moving Blurred Blue Live Wallpaper Background across Fullscreen */}
-          <div className="ios-live-wallpaper-bg">
-            <div className="ios-blob-1" style={{ filter: 'blur(90px)', opacity: 0.85 }} />
-            <div className="ios-blob-2" style={{ filter: 'blur(100px)', opacity: 0.75 }} />
-          </div>
-
-          {/* Top Right Option to Exit Fullscreen */}
-          <button
-            onClick={handleExitFullscreenClock}
-            style={{
-              position: 'fixed', top: '24px', right: '24px', zIndex: 10001,
-              padding: '10px 20px', background: 'rgba(255, 255, 255, 0.12)',
-              color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
-              borderRadius: '9999px', fontSize: '13px', fontWeight: '800',
-              cursor: 'pointer', backdropFilter: 'blur(20px)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.3)', transition: 'all 0.15s ease'
-            }}
-          >
-            ✕ Exit Fullscreen
-          </button>
-
-          {/* Fullscreen Time & Content Container */}
-          <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* Giant Extra-Bold iPhone Digital Time */}
-            <div style={{ userSelect: 'none' }}>
-              <div className="iphone-time-text" style={{
-                fontSize: '185px', fontWeight: '900', color: '#ffffff',
-                textShadow: '0 0 80px rgba(56, 189, 248, 0.9), 0 0 30px rgba(56, 189, 248, 0.6), 0 10px 40px rgba(0,0,0,0.7)',
-                lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center'
-              }}>
-                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-                <span style={{
-                  display: 'inline-block', width: '110px', textAlign: 'left',
-                  fontSize: '64px', fontWeight: '800', color: '#38bdf8',
-                  fontVariantNumeric: 'tabular-nums', marginLeft: '10px'
-                }}>:{formatSS(now)}</span>
-                <span style={{
-                  display: 'inline-block', width: '80px', textAlign: 'left',
-                  fontSize: '48px', fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
-                }}>{formatAMPM(now)}</span>
-              </div>
-
-              <div style={{
-                fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
-                marginTop: '20px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
-              }}>
-                {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-              </div>
-            </div>
-
-            {/* If exam is set, show progress bar OR Green Border TIME UP! box when finished */}
-            {(() => {
-              const progress = calculateExamProgress();
-              if (!progress.active) return null;
-
-              if (progress.status === 'completed') {
-                return (
-                  <div style={{
-                    marginTop: '36px', width: '480px', maxWidth: '85vw',
-                    background: 'rgba(34, 197, 94, 0.15)', backdropFilter: 'blur(30px)',
-                    padding: '20px 24px', borderRadius: '24px',
-                    border: '2px solid #22c55e', boxShadow: '0 0 35px rgba(34, 197, 94, 0.4)',
-                    textAlign: 'center'
-                  }}>
-                    <div className="time-up-pulsate" style={{ fontSize: '36px' }}>🚨 TIME UP!</div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#86efac', marginTop: '6px' }}>
-                      Exam schedule ({examStartTime} - {examEndTime}) has concluded.
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div style={{
-                  marginTop: '36px', width: '500px', maxWidth: '85vw',
-                  background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(30px)',
-                  padding: '20px 24px', borderRadius: '24px',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '14px', fontWeight: '800' }}>
-                    <span style={{ color: '#94a3b8' }}>Exam Progress</span>
-                    <span style={{ color: progress.color }}>{progress.progressPct.toFixed(0)}%</span>
-                  </div>
-
-                  <div style={{ width: '100%', height: '14px', background: 'rgba(255, 255, 255, 0.12)', borderRadius: '9999px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{
-                      width: `${progress.progressPct}%`,
-                      height: '100%',
-                      background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
-                      borderRadius: '9999px',
-                      boxShadow: `0 0 16px ${progress.color}`,
-                      transition: 'width 0.4s ease'
-                    }} />
-                  </div>
-
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#e2e8f0', marginTop: '12px', textAlign: 'center' }}>
-                    ⏱ {progress.remainingText} (Schedule: {examStartTime} - {examEndTime})
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        <FullscreenClockView
+          examStartTime={examStartTime}
+          examEndTime={examEndTime}
+          examActive={examActive}
+          handleExitFullscreenClock={handleExitFullscreenClock}
+        />
       )}
 
       {/* Highly Aesthetic Mobile Connection & QR Modal */}
