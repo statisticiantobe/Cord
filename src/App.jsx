@@ -1043,11 +1043,18 @@ function ConversionToolbar() {
           rawStrokes.push({ x: xArr, y: yArr });
         }
       } else {
-        // Fallback to shape geometry vertices or bounds
+        // Fallback to shape geometry (including Group2d children) or bounds
         try {
           const geometry = editor.getShapeGeometry(shape);
           if (geometry) {
-            const pts = geometry.vertices || geometry.points;
+            let pts = geometry.vertices || geometry.points;
+            if ((!pts || pts.length === 0) && Array.isArray(geometry.children)) {
+              pts = [];
+              geometry.children.forEach(child => {
+                const childPts = child.vertices || child.points;
+                if (Array.isArray(childPts)) pts.push(...childPts);
+              });
+            }
             if (Array.isArray(pts) && pts.length > 0) {
               const xArr = [];
               const yArr = [];
@@ -1067,6 +1074,13 @@ function ConversionToolbar() {
             }
           }
         } catch (e) { }
+
+        // Final fallback: use shape bounds if no stroke points were extracted
+        if (rawStrokes.length === 0 && bounds && bounds.w > 0 && bounds.h > 0) {
+          const xArr = [Math.round(bounds.x), Math.round(bounds.x + bounds.w)];
+          const yArr = [Math.round(bounds.y), Math.round(bounds.y + bounds.h)];
+          rawStrokes.push({ x: xArr, y: yArr });
+        }
       }
     });
 
@@ -1144,7 +1158,7 @@ function ConversionToolbar() {
     const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
-      showNotification('✏️ Draw a math formula first!');
+      showNotification('✏️ Draw a math formula with the Pen tool first!');
       return;
     }
 
@@ -1157,7 +1171,7 @@ function ConversionToolbar() {
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
-        showNotification('⚠️ Could not extract stroke points.');
+        showNotification('✏️ No hand-drawn strokes found to convert.');
         return;
       }
 
@@ -1269,14 +1283,14 @@ function ConversionToolbar() {
     if (!editor || isConvertingRef.current) return;
     const allSelected = editor.getSelectedShapes();
     if (allSelected.length > 0 && !allSelected.some(s => s.type === 'draw')) {
-      showNotification('✏️ Select hand-drawn strokes to convert!');
+      showNotification('✏️ Select hand-drawn strokes to convert into text!');
       return;
     }
     const selectedDrawShapes = allSelected.filter(s => s.type === 'draw');
     const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
-      showNotification('✏️ Draw or write some text first!');
+      showNotification('✏️ Draw or write text with the Pen tool first!');
       return;
     }
 
@@ -1289,7 +1303,7 @@ function ConversionToolbar() {
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
-        showNotification('⚠️ Could not extract stroke points.');
+        showNotification('✏️ No hand-drawn strokes found to convert.');
         return;
       }
 
