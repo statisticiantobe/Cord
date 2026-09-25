@@ -1149,16 +1149,11 @@ function ConversionToolbar() {
   // Perform Handwriting -> Math Equation Conversion
   const convertSelectedStrokesToMath = async () => {
     if (!editor || isConvertingRef.current) return;
-    const allSelected = editor.getSelectedShapes();
-    if (allSelected.length > 0 && !allSelected.some(s => s.type === 'draw')) {
-      showNotification('✏️ Select hand-drawn strokes to convert!');
-      return;
-    }
-    const selectedDrawShapes = allSelected.filter(s => s.type === 'draw');
-    const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
+    const selectedShapes = editor.getSelectedShapes().filter(s => s.type === 'draw');
+    const shapesToConvert = selectedShapes.length > 0 ? selectedShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
-      showNotification('✏️ Draw a math formula with the Pen tool first!');
+      showNotification('✏️ Draw a math formula first!');
       return;
     }
 
@@ -1171,7 +1166,7 @@ function ConversionToolbar() {
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
-        showNotification('✏️ No hand-drawn strokes found to convert.');
+        showNotification('⚠️ Could not extract stroke points.');
         return;
       }
 
@@ -1281,16 +1276,11 @@ function ConversionToolbar() {
   // Perform Handwriting -> Text Conversion
   const convertSelectedStrokesToText = async () => {
     if (!editor || isConvertingRef.current) return;
-    const allSelected = editor.getSelectedShapes();
-    if (allSelected.length > 0 && !allSelected.some(s => s.type === 'draw')) {
-      showNotification('✏️ Select hand-drawn strokes to convert into text!');
-      return;
-    }
-    const selectedDrawShapes = allSelected.filter(s => s.type === 'draw');
-    const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
+    const selectedShapes = editor.getSelectedShapes().filter(s => s.type === 'draw');
+    const shapesToConvert = selectedShapes.length > 0 ? selectedShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
-      showNotification('✏️ Draw or write text with the Pen tool first!');
+      showNotification('✏️ Draw or write some text first!');
       return;
     }
 
@@ -1303,7 +1293,7 @@ function ConversionToolbar() {
 
       if (strokes.length === 0) {
         isConvertingRef.current = false;
-        showNotification('✏️ No hand-drawn strokes found to convert.');
+        showNotification('⚠️ Could not extract stroke points.');
         return;
       }
 
