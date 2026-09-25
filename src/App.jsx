@@ -356,9 +356,6 @@ function ConversionToolbar() {
   }, [editor]);
 
   const selectDrawingTool = (toolId) => {
-    if (toolId !== 'eraser') {
-      setEraserMode('complete');
-    }
     if (!editor) return;
     try {
       editor.setCurrentTool(toolId);
@@ -377,72 +374,6 @@ function ConversionToolbar() {
   const [activePenFill, setActivePenFill] = useState('none');
   const styleBtnRef = useRef(null);
   const stylePanelRef = useRef(null);
-
-  // Integrated Eraser Popover Menu States & Handlers
-  const [eraserMenuOpen, setEraserMenuOpen] = useState(false);
-  const [eraserMenuPos, setEraserMenuPos] = useState({ top: 60, left: 16 });
-  const [eraserMode, setEraserMode] = useState('complete');
-  const eraserBtnRef = useRef(null);
-  const eraserMenuRef = useRef(null);
-
-  const getBoardBgHex = (boardColorId) => {
-    const bgMap = {
-      default: 'black',
-      black: 'white',
-      blue: 'white',
-      orange: 'white',
-      purple: 'white',
-      green: 'white',
-      grey: 'white',
-      yellow: 'black',
-      pink: 'white'
-    };
-    return bgMap[boardColorId] || 'black';
-  };
-
-  const handleSelectCompleteEraser = () => {
-    setEraserMode('complete');
-    setEraserMenuOpen(false);
-    if (!editor) return;
-    try {
-      editor.setCurrentTool('eraser');
-    } catch (e) { }
-  };
-
-  const handleSelectSelectiveEraser = () => {
-    setEraserMode('selective');
-    setEraserMenuOpen(false);
-    if (!editor) return;
-    try {
-      editor.setCurrentTool('draw');
-      const eraserColor = getBoardBgHex(boardColor);
-      editor.setStyleForNextShapes(DefaultColorStyle, eraserColor);
-      editor.setStyleForNextShapes(DefaultSizeStyle, 's');
-    } catch (e) { }
-  };
-
-  const handleToggleEraserMenu = () => {
-    if (!eraserMenuOpen && eraserBtnRef.current) {
-      const rect = eraserBtnRef.current.getBoundingClientRect();
-      setEraserMenuPos({ top: Math.round(rect.bottom + 12), left: Math.max(16, Math.min(rect.left - 40, window.innerWidth - 270)) });
-    }
-    setEraserMenuOpen(!eraserMenuOpen);
-  };
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (eraserMenuRef.current && !eraserMenuRef.current.contains(event.target) &&
-        eraserBtnRef.current && !eraserBtnRef.current.contains(event.target)) {
-        setEraserMenuOpen(false);
-      }
-    }
-    if (eraserMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [eraserMenuOpen]);
 
   const tldrawColors = [
     { id: 'black', hex: '#1e293b' },
@@ -1068,16 +999,19 @@ function ConversionToolbar() {
         if (bounds.y + bounds.h > maxY) maxY = bounds.y + bounds.h;
       }
 
-      // Check tldraw stroke segments (shape.props.segments)
+      // 1. Check tldraw stroke segments (shape.props.segments)
       const segments = shape.props?.segments;
       if (Array.isArray(segments) && segments.length > 0) {
         segments.forEach(seg => {
-          if (Array.isArray(seg.points) && seg.points.length > 0) {
+          const pts = seg.points || seg.path;
+          if (Array.isArray(pts) && pts.length > 0) {
             const xArr = [];
             const yArr = [];
-            seg.points.forEach(pt => {
-              const absX = Math.round(pageX + pt.x);
-              const absY = Math.round(pageY + pt.y);
+            pts.forEach(pt => {
+              const px = typeof pt.x === 'number' ? pt.x : (Array.isArray(pt) ? pt[0] : 0);
+              const py = typeof pt.y === 'number' ? pt.y : (Array.isArray(pt) ? pt[1] : 0);
+              const absX = Math.round(pageX + px);
+              const absY = Math.round(pageY + py);
               if (absX < minX) minX = absX;
               if (absY < minY) minY = absY;
               if (absX > maxX) maxX = absX;
@@ -1094,8 +1028,10 @@ function ConversionToolbar() {
         const xArr = [];
         const yArr = [];
         shape.props.points.forEach(pt => {
-          const absX = Math.round(pageX + pt.x);
-          const absY = Math.round(pageY + pt.y);
+          const px = typeof pt.x === 'number' ? pt.x : (Array.isArray(pt) ? pt[0] : 0);
+          const py = typeof pt.y === 'number' ? pt.y : (Array.isArray(pt) ? pt[1] : 0);
+          const absX = Math.round(pageX + px);
+          const absY = Math.round(pageY + py);
           if (absX < minX) minX = absX;
           if (absY < minY) minY = absY;
           if (absX > maxX) maxX = absX;
@@ -1107,7 +1043,7 @@ function ConversionToolbar() {
           rawStrokes.push({ x: xArr, y: yArr });
         }
       } else {
-        // Fallback to shape geometry vertices
+        // Fallback to shape geometry vertices or bounds
         try {
           const geometry = editor.getShapeGeometry(shape);
           if (geometry) {
@@ -1116,8 +1052,10 @@ function ConversionToolbar() {
               const xArr = [];
               const yArr = [];
               pts.forEach(pt => {
-                const absX = Math.round(pageX + pt.x);
-                const absY = Math.round(pageY + pt.y);
+                const px = typeof pt.x === 'number' ? pt.x : (Array.isArray(pt) ? pt[0] : 0);
+                const py = typeof pt.y === 'number' ? pt.y : (Array.isArray(pt) ? pt[1] : 0);
+                const absX = Math.round(pageX + px);
+                const absY = Math.round(pageY + py);
                 if (absX < minX) minX = absX;
                 if (absY < minY) minY = absY;
                 if (absX > maxX) maxX = absX;
@@ -1197,8 +1135,13 @@ function ConversionToolbar() {
   // Perform Handwriting -> Math Equation Conversion
   const convertSelectedStrokesToMath = async () => {
     if (!editor || isConvertingRef.current) return;
-    const selectedShapes = editor.getSelectedShapes().filter(s => s.type === 'draw');
-    const shapesToConvert = selectedShapes.length > 0 ? selectedShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
+    const allSelected = editor.getSelectedShapes();
+    if (allSelected.length > 0 && !allSelected.some(s => s.type === 'draw')) {
+      showNotification('✏️ Select hand-drawn strokes to convert!');
+      return;
+    }
+    const selectedDrawShapes = allSelected.filter(s => s.type === 'draw');
+    const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
       showNotification('✏️ Draw a math formula first!');
@@ -1324,8 +1267,13 @@ function ConversionToolbar() {
   // Perform Handwriting -> Text Conversion
   const convertSelectedStrokesToText = async () => {
     if (!editor || isConvertingRef.current) return;
-    const selectedShapes = editor.getSelectedShapes().filter(s => s.type === 'draw');
-    const shapesToConvert = selectedShapes.length > 0 ? selectedShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
+    const allSelected = editor.getSelectedShapes();
+    if (allSelected.length > 0 && !allSelected.some(s => s.type === 'draw')) {
+      showNotification('✏️ Select hand-drawn strokes to convert!');
+      return;
+    }
+    const selectedDrawShapes = allSelected.filter(s => s.type === 'draw');
+    const shapesToConvert = selectedDrawShapes.length > 0 ? selectedDrawShapes : editor.getCurrentPageShapes().filter(s => s.type === 'draw');
 
     if (shapesToConvert.length === 0) {
       showNotification('✏️ Draw or write some text first!');
@@ -2054,12 +2002,12 @@ function ConversionToolbar() {
               width: '32px',
               height: '34px', padding: '0',
               borderRadius: '50%',
-              background: (activeTool === 'draw' && eraserMode !== 'selective') ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
-              color: (activeTool === 'draw' && eraserMode !== 'selective') ? '#ffffff' : '#334155',
-              border: (activeTool === 'draw' && eraserMode !== 'selective') ? 'none' : '1px solid #cbd5e1',
+              background: activeTool === 'draw' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
+              color: activeTool === 'draw' ? '#ffffff' : '#334155',
+              border: activeTool === 'draw' ? 'none' : '1px solid #cbd5e1',
               fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: (activeTool === 'draw' && eraserMode !== 'selective') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              boxShadow: activeTool === 'draw' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
             title="Pencil / Draw Tool (✏️)"
@@ -2067,23 +2015,22 @@ function ConversionToolbar() {
             <span style={{ fontSize: '13px' }}>✏️</span>
           </button>
 
-          {/* Eraser Tool Button (Opens Eraser Options Popover) */}
+          {/* Eraser Tool Button */}
           <button
-            ref={eraserBtnRef}
-            onClick={handleToggleEraserMenu}
+            onClick={() => selectDrawingTool('eraser')}
             style={{
               width: '32px',
               height: '34px', padding: '0',
               borderRadius: '50%',
-              background: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
-              color: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? '#ffffff' : '#334155',
-              border: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? 'none' : '1px solid #cbd5e1',
+              background: activeTool === 'eraser' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#ffffff',
+              color: activeTool === 'eraser' ? '#ffffff' : '#334155',
+              border: activeTool === 'eraser' ? 'none' : '1px solid #cbd5e1',
               fontWeight: '700', cursor: 'pointer', fontSize: '11.5px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              boxShadow: (eraserMenuOpen || activeTool === 'eraser' || eraserMode === 'selective') ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
+              boxShadow: activeTool === 'eraser' ? '0 2px 8px rgba(59,130,246,0.4)' : 'none',
               transition: 'all 0.15s ease'
             }}
-            title="Eraser Tool (Complete 🧹 vs Selective ✂️)"
+            title="Eraser Tool (🧹)"
           >
             <span style={{ fontSize: '13px' }}>🧹</span>
           </button>
@@ -2329,80 +2276,7 @@ function ConversionToolbar() {
         </div>
       </div>
 
-      {/* Aesthetic Eraser Popover Menu */}
-      {eraserMenuOpen && (
-        <div
-          ref={eraserMenuRef}
-          style={{
-            position: 'fixed',
-            top: `${eraserMenuPos.top}px`,
-            ...(eraserMenuPos.left !== 'auto' ? { left: `${eraserMenuPos.left}px` } : {}),
-            zIndex: 9999999,
-            width: '260px',
-            background: 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: '20px',
-            border: '1px solid rgba(226, 232, 240, 0.95)',
-            boxShadow: '0 20px 45px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.06)',
-            padding: '16px',
-            userSelect: 'none'
-          }}
-        >
-          <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.5px' }}>
-            Eraser Mode
-          </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Option A: Complete Erase with Vacuum Cleaner Emoji 🧹 */}
-            <button
-              onClick={handleSelectCompleteEraser}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '14px',
-                border: (activeTool === 'eraser' && eraserMode === 'complete') ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-                background: (activeTool === 'eraser' && eraserMode === 'complete') ? '#eff6ff' : '#f8fafc',
-                color: (activeTool === 'eraser' && eraserMode === 'complete') ? '#1d4ed8' : '#334155',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                textAlign: 'left',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span style={{ fontSize: '24px' }}>🧹</span>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Complete Erase</div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Erase full strokes & shapes</div>
-              </div>
-            </button>
-
-            {/* Option B: Selective Erase */}
-            <button
-              onClick={handleSelectSelectiveEraser}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: '14px',
-                border: (eraserMode === 'selective') ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-                background: (eraserMode === 'selective') ? '#eff6ff' : '#f8fafc',
-                color: (eraserMode === 'selective') ? '#1d4ed8' : '#334155',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>✂️</span>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>Selective Erasing</div>
-                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Erase small tiny spaces precisely</div>
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Integrated Style & Color Palette Popover (Picture 1 Match) */}
       {stylePanelOpen && (
