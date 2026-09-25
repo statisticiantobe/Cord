@@ -991,6 +991,7 @@ function ConversionToolbar() {
       const bounds = editor.getShapePageBounds(shape);
       const pageX = shape.x || 0;
       const pageY = shape.y || 0;
+      const shapeStrokesCountBefore = rawStrokes.length;
 
       if (bounds) {
         if (bounds.x < minX) minX = bounds.x;
@@ -1024,7 +1025,10 @@ function ConversionToolbar() {
             }
           }
         });
-      } else if (Array.isArray(shape.props?.points) && shape.props.points.length > 0) {
+      }
+
+      // 2. Check shape.props.points
+      if (rawStrokes.length === shapeStrokesCountBefore && Array.isArray(shape.props?.points) && shape.props.points.length > 0) {
         const xArr = [];
         const yArr = [];
         shape.props.points.forEach(pt => {
@@ -1042,8 +1046,10 @@ function ConversionToolbar() {
         if (xArr.length > 0) {
           rawStrokes.push({ x: xArr, y: yArr });
         }
-      } else {
-        // Fallback to shape geometry (including Group2d children) or bounds
+      }
+
+      // 3. Fallback to shape geometry (including Group2d / Polyline2d children)
+      if (rawStrokes.length === shapeStrokesCountBefore) {
         try {
           const geometry = editor.getShapeGeometry(shape);
           if (geometry) {
@@ -1074,13 +1080,13 @@ function ConversionToolbar() {
             }
           }
         } catch (e) { }
+      }
 
-        // Final fallback: use shape bounds if no stroke points were extracted
-        if (rawStrokes.length === 0 && bounds && bounds.w > 0 && bounds.h > 0) {
-          const xArr = [Math.round(bounds.x), Math.round(bounds.x + bounds.w)];
-          const yArr = [Math.round(bounds.y), Math.round(bounds.y + bounds.h)];
-          rawStrokes.push({ x: xArr, y: yArr });
-        }
+      // 4. Ultimate fallback for this shape: use shape bounds if no stroke points were extracted yet
+      if (rawStrokes.length === shapeStrokesCountBefore && bounds && bounds.w > 0 && bounds.h > 0) {
+        const xArr = [Math.round(bounds.x), Math.round(bounds.x + bounds.w)];
+        const yArr = [Math.round(bounds.y), Math.round(bounds.y + bounds.h)];
+        rawStrokes.push({ x: xArr, y: yArr });
       }
     });
 
