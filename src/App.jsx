@@ -218,44 +218,92 @@ function MobilePhotoUploadView() {
   );
 }
 
-// SVG Analog Clock Component
+// Synthesize Web Audio API chime sound for timer alert
+const playTimeUpChime = () => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    
+    const freqs = [523.25, 659.25, 783.99]; // C5, E5, G5 major triad chime
+    freqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+      gain.gain.setValueAtTime(0, now + idx * 0.15);
+      gain.gain.linearRampToValueAtTime(0.3, now + idx * 0.15 + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.15);
+      osc.stop(now + idx * 0.15 + 0.8);
+    });
+  } catch (e) { }
+};
+
+// SVG Vector Analog Clock Component
 function AnalogClockView({ date, size = 180, isGlow = true }) {
-  const seconds = date.getSeconds();
-  const minutes = date.getMinutes();
-  const hours = date.getHours() % 12;
+  const seconds = date.getSeconds() + date.getMilliseconds() / 1000;
+  const minutes = date.getMinutes() + seconds / 60;
+  const hours = (date.getHours() % 12) + minutes / 60;
 
   const secondDeg = seconds * 6;
-  const minuteDeg = minutes * 6 + seconds * 0.1;
-  const hourDeg = hours * 30 + minutes * 0.5;
+  const minuteDeg = minutes * 6;
+  const hourDeg = hours * 30;
 
   const center = size / 2;
-  const radius = center - 12;
+  const radius = center - 14;
 
   return (
-    <svg width={size} height={size} style={{ filter: isGlow ? 'drop-shadow(0 0 16px rgba(99, 102, 241, 0.4))' : 'none' }}>
-      <circle cx={center} cy={center} r={radius} fill="url(#clockBg)" stroke="rgba(255, 255, 255, 0.25)" strokeWidth="3" />
+    <svg width={size} height={size} style={{ filter: isGlow ? 'drop-shadow(0 0 16px rgba(56, 189, 248, 0.4))' : 'none', display: 'block', margin: '0 auto' }}>
       <defs>
-        <radialGradient id="clockBg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#1e1b4b" />
-          <stop offset="100%" stopColor="#0f172a" />
+        <radialGradient id={`clockBg-${size}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#1e293b" />
+          <stop offset="70%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#020617" />
         </radialGradient>
+        <linearGradient id={`clockRim-${size}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="50%" stopColor="#818cf8" />
+          <stop offset="100%" stopColor="#0284c7" />
+        </linearGradient>
       </defs>
 
-      {/* Hour markers */}
+      <circle cx={center} cy={center} r={radius} fill={`url(#clockBg-${size})`} stroke={`url(#clockRim-${size})`} strokeWidth="3" />
+
       {[...Array(12)].map((_, i) => {
+        const num = i === 0 ? 12 : i;
         const angle = (i * 30 - 90) * (Math.PI / 180);
-        const r1 = radius - 8;
-        const r2 = radius - 18;
+        const r1 = radius - 6;
+        const r2 = radius - 16;
+        const rText = radius - 26;
         return (
-          <line
-            key={i}
-            x1={center + r1 * Math.cos(angle)}
-            y1={center + r1 * Math.sin(angle)}
-            x2={center + r2 * Math.cos(angle)}
-            y2={center + r2 * Math.sin(angle)}
-            stroke={i % 3 === 0 ? '#38bdf8' : 'rgba(255,255,255,0.4)'}
-            strokeWidth={i % 3 === 0 ? '3' : '1.5'}
-          />
+          <g key={i}>
+            <line
+              x1={center + r1 * Math.cos(angle)}
+              y1={center + r1 * Math.sin(angle)}
+              x2={center + r2 * Math.cos(angle)}
+              y2={center + r2 * Math.sin(angle)}
+              stroke={i % 3 === 0 ? '#38bdf8' : 'rgba(255,255,255,0.35)'}
+              strokeWidth={i % 3 === 0 ? '2.5' : '1.2'}
+              strokeLinecap="round"
+            />
+            {size >= 140 && (
+              <text
+                x={center + rText * Math.cos(angle)}
+                y={center + rText * Math.sin(angle) + 4}
+                textAnchor="middle"
+                fill={i % 3 === 0 ? '#38bdf8' : 'rgba(255,255,255,0.7)'}
+                fontSize={size >= 200 ? '13' : '10'}
+                fontWeight="800"
+                fontFamily="Outfit, sans-serif"
+              >
+                {num}
+              </text>
+            )}
+          </g>
         );
       })}
 
@@ -264,7 +312,8 @@ function AnalogClockView({ date, size = 180, isGlow = true }) {
         x1={center} y1={center}
         x2={center + (radius * 0.45) * Math.sin(hourDeg * Math.PI / 180)}
         y2={center - (radius * 0.45) * Math.cos(hourDeg * Math.PI / 180)}
-        stroke="#ffffff" strokeWidth="4.5" strokeLinecap="round"
+        stroke="#ffffff" strokeWidth="4" strokeLinecap="round"
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
       />
 
       {/* Minute hand */}
@@ -272,7 +321,8 @@ function AnalogClockView({ date, size = 180, isGlow = true }) {
         x1={center} y1={center}
         x2={center + (radius * 0.68) * Math.sin(minuteDeg * Math.PI / 180)}
         y2={center - (radius * 0.68) * Math.cos(minuteDeg * Math.PI / 180)}
-        stroke="#818cf8" strokeWidth="3" strokeLinecap="round"
+        stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round"
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
       />
 
       {/* Second hand */}
@@ -284,17 +334,21 @@ function AnalogClockView({ date, size = 180, isGlow = true }) {
       />
 
       {/* Center cap */}
-      <circle cx={center} cy={center} r="5" fill="#ef4444" />
+      <circle cx={center} cy={center} r="4.5" fill="#ef4444" stroke="#ffffff" strokeWidth="1" />
     </svg>
   );
 }
 
-const formatHHMM = (date) => {
+const formatHHMM = (date, use24Hour = false) => {
   let h = date.getHours();
   const m = String(date.getMinutes()).padStart(2, '0');
+  if (use24Hour) {
+    return `${String(h).padStart(2, '0')}:${m}`;
+  }
   h = h % 12 || 12;
   return `${String(h).padStart(2, '0')}:${m}`;
 };
+
 const formatSS = (date) => String(date.getSeconds()).padStart(2, '0');
 const formatAMPM = (date) => (date.getHours() >= 12 ? 'PM' : 'AM');
 
@@ -306,6 +360,14 @@ const formatDuration = (totalSec) => {
     return `${hrs}h ${mins}m ${secs}s`;
   }
   return `${mins}m ${secs}s`;
+};
+
+const formatStopwatchTime = (ms) => {
+  const totalSec = Math.floor(ms / 1000);
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  const hundredths = Math.floor((ms % 1000) / 10);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
 };
 
 function calculateExamProgress(nowDate, examActive, examStartTime, examEndTime) {
@@ -342,13 +404,13 @@ function calculateExamProgress(nowDate, examActive, examStartTime, examEndTime) 
   const pct = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
   const remainingSec = Math.round((endMs - nowMs) / 1000);
 
-  let barColor = '#22c55e'; // Green
+  let barColor = '#22c55e';
   if (pct >= 85) {
-    barColor = '#ef4444'; // Red
+    barColor = '#ef4444';
   } else if (pct >= 60) {
-    barColor = '#f97316'; // Orange
+    barColor = '#f97316';
   } else if (pct >= 30) {
-    barColor = '#eab308'; // Yellow
+    barColor = '#eab308';
   }
 
   return {
@@ -360,32 +422,536 @@ function calculateExamProgress(nowDate, examActive, examStartTime, examEndTime) 
   };
 }
 
-const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
+const LiveClockBadge = React.memo(function LiveClockBadge({
+  onOpenFloating,
+  onOpenExamPanel,
+  onOpenFullscreen,
+  clockMode,
+  setClockMode,
+  use24Hour,
+  setUse24Hour,
+  soundEnabled,
+  setSoundEnabled,
+  examActive,
+  examStartTime,
+  examEndTime
+}) {
   const [time, setTime] = useState(new Date());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const examProgress = calculateExamProgress(time, examActive, examStartTime, examEndTime);
+
   return (
-    <button
-      onClick={onClick}
-      style={{
-        height: '32px', padding: '0 12px',
-        background: 'linear-gradient(135deg, #0f172a, #1e293b)',
-        color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
-        borderRadius: '9999px', fontSize: '11.5px', fontWeight: '800',
-        display: 'flex', alignItems: 'center', gap: '6px',
-        cursor: 'pointer', whiteSpace: 'nowrap',
-        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.25)',
-        transition: 'all 0.15s ease', flexShrink: 0
-      }}
-      title="Click for Exam Timer & Fullscreen Clock"
-    >
-      <span style={{ fontSize: '13px' }}>🕒</span>
-      <span>{formatHHMM(time)}</span>
-    </button>
+    <div style={{ position: 'relative' }} ref={menuRef}>
+      <button
+        onClick={() => setMenuOpen(!menuOpen)}
+        style={{
+          height: '32px', padding: '0 12px',
+          background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+          color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)',
+          borderRadius: '9999px', fontSize: '11.5px', fontWeight: '800',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          cursor: 'pointer', whiteSpace: 'nowrap',
+          boxShadow: '0 2px 8px rgba(15, 23, 42, 0.25)',
+          transition: 'all 0.15s ease', flexShrink: 0
+        }}
+        title="Viewboard Clock & Exam Timer Menu"
+      >
+        <span style={{ fontSize: '13px' }}>🕒</span>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(time, use24Hour)}</span>
+        {!use24Hour && <span style={{ fontSize: '9.5px', color: '#93c5fd' }}>{formatAMPM(time)}</span>}
+        {examProgress.active && examProgress.status === 'in_progress' && (
+          <span style={{
+            background: examProgress.color, color: '#000', fontSize: '9px', fontWeight: '900',
+            padding: '1px 5px', borderRadius: '6px', marginLeft: '2px'
+          }}>
+            {`${examProgress.progressPct.toFixed(0)}%`}
+          </span>
+        )}
+      </button>
+
+      {menuOpen && (
+        <div style={{
+          position: 'absolute', top: '40px', right: 0, zIndex: 99999,
+          width: '230px', background: 'rgba(15, 23, 42, 0.96)', backdropFilter: 'blur(20px)',
+          borderRadius: '18px', border: '1px solid rgba(56, 189, 248, 0.25)',
+          boxShadow: '0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(56, 189, 248, 0.15)',
+          padding: '10px', color: 'white', fontSize: '12px', userSelect: 'none'
+        }}>
+          <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', padding: '4px 8px', marginBottom: '4px', letterSpacing: '0.5px' }}>
+            🕒 Viewboard Clock Menu
+          </div>
+
+          <button
+            onClick={() => { onOpenFloating(); setMenuOpen(false); }}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#38bdf8', fontSize: '12px', fontWeight: '700', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}
+          >
+            <span>📌</span> Floating Widget on Viewboard
+          </button>
+
+          <button
+            onClick={() => { onOpenExamPanel(); setMenuOpen(false); }}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#e2e8f0', fontSize: '12px', fontWeight: '700', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}
+          >
+            <span>⏱️</span> Exam Timer & Settings
+          </button>
+
+          <button
+            onClick={() => { onOpenFullscreen(); setMenuOpen(false); }}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#e2e8f0', fontSize: '12px', fontWeight: '700', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}
+          >
+            <span>⛶</span> Fullscreen Ambient Clock
+          </button>
+
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0 8px' }} />
+
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+            <button
+              onClick={() => setClockMode(clockMode === 'digital' ? 'analog' : 'digital')}
+              style={{ flex: 1, padding: '6px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Mode: {clockMode === 'digital' ? '📱 Digital' : '🕰️ Analog'}
+            </button>
+            <button
+              onClick={() => setUse24Hour(!use24Hour)}
+              style={{ flex: 1, padding: '6px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              {use24Hour ? '24-Hour' : '12-Hour'}
+            </button>
+          </div>
+
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            style={{ width: '100%', padding: '6px 10px', borderRadius: '8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: soundEnabled ? '#4ade80' : '#94a3b8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <span>{soundEnabled ? '🔔 Audio Alert Chime On' : '🔕 Audio Alert Muted'}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// Floating Draggable Clock Widget for Viewboard Canvas
+const FloatingClockWidget = React.memo(function FloatingClockWidget({
+  timePos,
+  setTimePos,
+  onClose,
+  onOpenExamPanel,
+  onOpenFullscreen,
+  clockMode,
+  setClockMode,
+  use24Hour,
+  setUse24Hour,
+  soundEnabled,
+  examStartTime,
+  setExamStartTime,
+  examEndTime,
+  setExamEndTime,
+  examActive,
+  setExamActive,
+  handleApplyExamSchedule
+}) {
+  const [now, setNow] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('clock'); // 'clock' | 'exam' | 'stopwatch' | 'countdown'
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+
+  // Stopwatch state
+  const [swRunning, setSwRunning] = useState(false);
+  const [swTimeMs, setSwTimeMs] = useState(0);
+  const [swLaps, setSwLaps] = useState([]);
+  const swStartTimeRef = useRef(0);
+
+  // Countdown state
+  const [cdRunning, setCdRunning] = useState(false);
+  const [cdSeconds, setCdSeconds] = useState(300); // 5 min default
+  const [cdInitialSec, setCdInitialSec] = useState(300);
+
+  // Live time ticker
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Stopwatch ticker
+  useEffect(() => {
+    let interval;
+    if (swRunning) {
+      interval = setInterval(() => {
+        setSwTimeMs(Date.now() - swStartTimeRef.current);
+      }, 30);
+    }
+    return () => clearInterval(interval);
+  }, [swRunning]);
+
+  // Countdown ticker
+  useEffect(() => {
+    let interval;
+    if (cdRunning && cdSeconds > 0) {
+      interval = setInterval(() => {
+        setCdSeconds(prev => {
+          if (prev <= 1) {
+            setCdRunning(false);
+            if (soundEnabled) playTimeUpChime();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [cdRunning, cdSeconds, soundEnabled]);
+
+  // Handle Dragging
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX - timePos.x, y: e.clientY - timePos.y };
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStart.current = { x: e.touches[0].clientX - timePos.x, y: e.touches[0].clientY - timePos.y };
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      const newX = Math.max(10, Math.min(window.innerWidth - 320, e.clientX - dragStart.current.x));
+      const newY = Math.max(10, Math.min(window.innerHeight - 100, e.clientY - dragStart.current.y));
+      setTimePos({ x: newX, y: newY });
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const newX = Math.max(10, Math.min(window.innerWidth - 320, e.touches[0].clientX - dragStart.current.x));
+      const newY = Math.max(10, Math.min(window.innerHeight - 100, e.touches[0].clientY - dragStart.current.y));
+      setTimePos({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove);
+      window.addEventListener('touchend', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, setTimePos]);
+
+  const examProgress = calculateExamProgress(now, examActive, examStartTime, examEndTime);
+
+  if (isMinimized) {
+    return (
+      <div
+        style={{
+          position: 'fixed', left: `${timePos.x}px`, top: `${timePos.y}px`, zIndex: 999999,
+          background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '9999px',
+          padding: '6px 14px', color: '#38bdf8', fontSize: '13px', fontWeight: '800',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '8px',
+          cursor: isDragging ? 'grabbing' : 'grab', userSelect: 'none'
+        }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+      >
+        <span style={{ cursor: 'grab' }}>⠿</span>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now, use24Hour)}</span>
+        <span style={{ fontSize: '11px', color: '#38bdf8' }}>:{formatSS(now)}</span>
+        <button
+          onClick={() => setIsMinimized(false)}
+          style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+          title="Expand Widget"
+        >
+          🗖
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', left: `${timePos.x}px`, top: `${timePos.y}px`, zIndex: 999999,
+      width: '320px', background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(25px)',
+      borderRadius: '22px', border: '1px solid rgba(255, 255, 255, 0.18)',
+      boxShadow: '0 20px 50px rgba(0,0,0,0.6), 0 0 30px rgba(56, 189, 248, 0.15)',
+      color: 'white', userSelect: 'none', overflow: 'hidden'
+    }}>
+      {/* Draggable Header */}
+      <div
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        style={{
+          padding: '10px 14px', background: 'rgba(255, 255, 255, 0.07)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+      >
+        <div style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>⠿</span> 🕒 Viewboard Clock
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button
+            onClick={onOpenFullscreen}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#38bdf8', width: '24px', height: '24px', borderRadius: '50%', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Fullscreen Clock"
+          >
+            ⛶
+          </button>
+          <button
+            onClick={onOpenExamPanel}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#e2e8f0', width: '24px', height: '24px', borderRadius: '50%', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Exam & Schedule Panel"
+          >
+            ⚙️
+          </button>
+          <button
+            onClick={() => setIsMinimized(true)}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', width: '24px', height: '24px', borderRadius: '50%', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Minimize"
+          >
+            🗕
+          </button>
+          <button
+            onClick={onClose}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#ef4444', width: '24px', height: '24px', borderRadius: '50%', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="Dock to Navbar"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '4px', gap: '2px' }}>
+        {[
+          { id: 'clock', label: '🕒 Clock' },
+          { id: 'exam', label: '⏱️ Exam' },
+          { id: 'stopwatch', label: '⏱️ StopW' },
+          { id: 'countdown', label: '⏳ Timer' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            style={{
+              flex: 1, padding: '5px 0', borderRadius: '8px', border: 'none',
+              background: activeTab === t.id ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+              color: activeTab === t.id ? '#38bdf8' : '#94a3b8',
+              fontSize: '11px', fontWeight: '800', cursor: 'pointer', transition: 'all 0.15s ease'
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: '14px', textAlign: 'center' }}>
+        {/* Tab 1: Live Clock */}
+        {activeTab === 'clock' && (
+          <div>
+            {clockMode === 'digital' ? (
+              <div style={{ padding: '10px 0' }}>
+                <div className="iphone-time-text" style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 20px rgba(56, 189, 248, 0.6)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now, use24Hour)}</span>
+                  <span style={{ fontSize: '18px', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
+                  {!use24Hour && <span style={{ fontSize: '14px', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
+                  {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '6px 0' }}>
+                <AnalogClockView date={now} size={150} isGlow={true} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '10px' }}>
+              <button
+                onClick={() => setClockMode(clockMode === 'digital' ? 'analog' : 'digital')}
+                style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#e2e8f0', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+              >
+                {clockMode === 'digital' ? 'Switch to Analog 🕰️' : 'Switch to Digital 📱'}
+              </button>
+              <button
+                onClick={() => setUse24Hour(!use24Hour)}
+                style={{ padding: '4px 10px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#e2e8f0', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+              >
+                {use24Hour ? 'Use 12-Hour' : 'Use 24-Hour'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Exam Progress */}
+        {activeTab === 'exam' && (
+          <div>
+            {!examProgress.active ? (
+              <div style={{ fontSize: '11px', color: '#94a3b8', padding: '10px 0' }}>
+                No active exam schedule. Click gear icon to set Start & End times.
+              </div>
+            ) : examProgress.status === 'completed' ? (
+              <div style={{ padding: '10px 0' }}>
+                <div className="time-up-pulsate" style={{ fontSize: '20px' }}>🚨 TIME UP!</div>
+                <div style={{ fontSize: '11px', color: '#86efac', marginTop: '4px' }}>Exam schedule concluded.</div>
+              </div>
+            ) : (
+              <div style={{ padding: '4px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', fontWeight: '800' }}>
+                  <span style={{ color: '#94a3b8' }}>Exam Progress</span>
+                  <span style={{ color: examProgress.color }}>{`${examProgress.progressPct.toFixed(0)}%`}</span>
+                </div>
+
+                <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.12)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '8px' }}>
+                  <div style={{
+                    width: `${examProgress.progressPct}%`, height: '100%',
+                    background: examProgress.color, borderRadius: '9999px',
+                    boxShadow: `0 0 10px ${examProgress.color}`, transition: 'width 0.4s ease'
+                  }} />
+                </div>
+
+                <div style={{ fontSize: '11.5px', fontWeight: '700', color: 'white' }}>
+                  {examProgress.remainingText}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: Stopwatch */}
+        {activeTab === 'stopwatch' && (
+          <div>
+            <div style={{ fontSize: '32px', fontWeight: '900', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', margin: '6px 0' }}>
+              {formatStopwatchTime(swTimeMs)}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+              <button
+                onClick={() => {
+                  if (!swRunning) {
+                    swStartTimeRef.current = Date.now() - swTimeMs;
+                    setSwRunning(true);
+                  } else {
+                    setSwRunning(false);
+                  }
+                }}
+                style={{
+                  padding: '6px 16px', borderRadius: '10px', border: 'none',
+                  background: swRunning ? '#ef4444' : '#10b981', color: 'white',
+                  fontSize: '11px', fontWeight: '900', cursor: 'pointer'
+                }}
+              >
+                {swRunning ? 'Pause ⏸' : 'Start ▶'}
+              </button>
+
+              <button
+                onClick={() => {
+                  if (swRunning) {
+                    setSwLaps(prev => [formatStopwatchTime(swTimeMs), ...prev]);
+                  } else {
+                    setSwTimeMs(0);
+                    setSwLaps([]);
+                  }
+                }}
+                style={{
+                  padding: '6px 14px', borderRadius: '10px', border: 'none',
+                  background: 'rgba(255,255,255,0.12)', color: 'white',
+                  fontSize: '11px', fontWeight: '800', cursor: 'pointer'
+                }}
+              >
+                {swRunning ? 'Lap 🚩' : 'Reset ↺'}
+              </button>
+            </div>
+
+            {swLaps.length > 0 && (
+              <div style={{ maxHeight: '60px', overflowY: 'auto', fontSize: '10px', color: '#cbd5e1', textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '8px' }}>
+                {swLaps.map((l, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Lap {swLaps.length - idx}</span>
+                    <span style={{ fontWeight: '700' }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 4: Countdown Timer */}
+        {activeTab === 'countdown' && (
+          <div>
+            <div style={{ fontSize: '32px', fontWeight: '900', color: cdSeconds === 0 ? '#ef4444' : '#4ade80', fontVariantNumeric: 'tabular-nums', margin: '4px 0' }}>
+              {formatDuration(cdSeconds)}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              {[60, 300, 600, 900, 1800].map(s => (
+                <button
+                  key={s}
+                  onClick={() => { setCdRunning(false); setCdSeconds(s); setCdInitialSec(s); }}
+                  style={{ padding: '3px 8px', borderRadius: '6px', background: cdInitialSec === s ? '#38bdf8' : 'rgba(255,255,255,0.1)', color: cdInitialSec === s ? '#000' : 'white', border: 'none', fontSize: '10px', fontWeight: '800', cursor: 'pointer' }}
+                >
+                  {s / 60}m
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+              <button
+                onClick={() => setCdRunning(!cdRunning)}
+                style={{
+                  padding: '6px 16px', borderRadius: '10px', border: 'none',
+                  background: cdRunning ? '#ef4444' : '#38bdf8', color: cdRunning ? 'white' : '#000',
+                  fontSize: '11px', fontWeight: '900', cursor: 'pointer'
+                }}
+              >
+                {cdRunning ? 'Pause ⏸' : 'Start ▶'}
+              </button>
+
+              <button
+                onClick={() => { setCdRunning(false); setCdSeconds(cdInitialSec); }}
+                style={{
+                  padding: '6px 14px', borderRadius: '10px', border: 'none',
+                  background: 'rgba(255,255,255,0.12)', color: 'white',
+                  fontSize: '11px', fontWeight: '800', cursor: 'pointer'
+                }}
+              >
+                Reset ↺
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 });
 
@@ -397,6 +963,12 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
   examActive,
   handleApplyExamSchedule,
   handleEnterFullscreenClock,
+  clockMode,
+  setClockMode,
+  use24Hour,
+  setUse24Hour,
+  soundEnabled,
+  setSoundEnabled,
   onClose
 }) {
   const [now, setNow] = useState(new Date());
@@ -411,10 +983,10 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
   return (
     <div style={{
       position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-      zIndex: 9999999, width: '430px', maxWidth: '92vw',
-      background: 'rgba(15, 23, 42, 0.94)', backdropFilter: 'blur(30px)',
+      zIndex: 9999999, width: '440px', maxWidth: '92vw',
+      background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(30px)',
       borderRadius: '28px', border: '1px solid rgba(255, 255, 255, 0.15)',
-      boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 35px rgba(56, 189, 248, 0.2)',
+      boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 35px rgba(56, 189, 248, 0.2)',
       padding: '24px', color: 'white', overflow: 'hidden'
     }}>
       <div className="ios-live-wallpaper-bg">
@@ -425,7 +997,7 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ fontSize: '14px', fontWeight: '800', color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>🕒</span> Exam Timer
+            <span>🕒</span> Exam Timer & Clock Settings
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
@@ -451,13 +1023,33 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
         </div>
 
         <div style={{ textAlign: 'center', margin: '14px 0 20px' }}>
-          <div className="iphone-time-text" style={{ fontSize: '54px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 30px rgba(56, 189, 248, 0.7), 0 4px 16px rgba(0,0,0,0.5)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-            <span style={{ display: 'inline-block', width: '38px', textAlign: 'left', fontSize: '22px', fontWeight: '800', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
-            <span style={{ display: 'inline-block', width: '32px', textAlign: 'left', fontSize: '18px', fontWeight: '800', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>
-          </div>
+          {clockMode === 'digital' ? (
+            <div className="iphone-time-text" style={{ fontSize: '52px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 30px rgba(56, 189, 248, 0.7), 0 4px 16px rgba(0,0,0,0.5)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now, use24Hour)}</span>
+              <span style={{ display: 'inline-block', width: '38px', textAlign: 'left', fontSize: '22px', fontWeight: '800', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
+              {!use24Hour && <span style={{ display: 'inline-block', width: '32px', textAlign: 'left', fontSize: '18px', fontWeight: '800', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>}
+            </div>
+          ) : (
+            <AnalogClockView date={now} size={160} isGlow={true} />
+          )}
+
           <div style={{ fontSize: '13px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.85)', marginTop: '8px', letterSpacing: '0.5px' }}>
             {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '10px' }}>
+            <button
+              onClick={() => setClockMode(clockMode === 'digital' ? 'analog' : 'digital')}
+              style={{ padding: '4px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Mode: {clockMode === 'digital' ? '📱 Digital' : '🕰️ Analog'}
+            </button>
+            <button
+              onClick={() => setUse24Hour(!use24Hour)}
+              style={{ padding: '4px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Format: {use24Hour ? '24-Hour' : '12-Hour'}
+            </button>
           </div>
         </div>
 
@@ -494,24 +1086,26 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
                 cursor: 'pointer', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)', transition: 'transform 0.15s ease'
               }}
             >
-              OK
+              Apply OK
             </button>
           </div>
 
-          <button
-            onClick={() => {
-              const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-              setExamStartTime(nowStr);
-            }}
-            style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '8px', padding: 0 }}
-          >
-            ⚡ Set Start to Current Time ({formatHHMM(now)})
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <button
+              onClick={() => {
+                const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                setExamStartTime(nowStr);
+              }}
+              style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '11px', fontWeight: '700', cursor: 'pointer', padding: 0 }}
+            >
+              ⚡ Set Start to Now ({formatHHMM(now, use24Hour)})
+            </button>
+          </div>
         </div>
 
         {!progress.active ? (
           <div style={{ background: 'rgba(255, 255, 255, 0.06)', padding: '14px', borderRadius: '18px', border: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#64748b' }}>
-            Enter Exam Start & End times and click OK to start progress bar.
+            Enter Exam Start & End times and click Apply OK to start progress bar.
           </div>
         ) : progress.status === 'completed' ? (
           <div style={{
@@ -554,7 +1148,12 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
   examStartTime,
   examEndTime,
   examActive,
-  handleExitFullscreenClock
+  handleExitFullscreenClock,
+  clockMode,
+  setClockMode,
+  use24Hour,
+  setUse24Hour,
+  soundEnabled
 }) {
   const [now, setNow] = useState(new Date());
 
@@ -563,7 +1162,23 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        handleExitFullscreenClock();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleExitFullscreenClock]);
+
   const progress = calculateExamProgress(now, examActive, examStartTime, examEndTime);
+
+  useEffect(() => {
+    if (progress.status === 'completed' && soundEnabled) {
+      playTimeUpChime();
+    }
+  }, [progress.status, soundEnabled]);
 
   return (
     <div style={{
@@ -577,46 +1192,85 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
         <div className="ios-blob-2" style={{ filter: 'blur(100px)', opacity: 0.75 }} />
       </div>
 
-      <button
-        onClick={handleExitFullscreenClock}
-        style={{
-          position: 'fixed', top: '24px', right: '24px', zIndex: 10001,
-          padding: '10px 20px', background: 'rgba(255, 255, 255, 0.12)',
-          color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
-          borderRadius: '9999px', fontSize: '13px', fontWeight: '800',
-          cursor: 'pointer', backdropFilter: 'blur(20px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)', transition: 'all 0.15s ease'
-        }}
-      >
-        ✕ Exit Fullscreen
-      </button>
+      <div style={{ position: 'fixed', top: '24px', right: '24px', zIndex: 10001, display: 'flex', gap: '10px' }}>
+        <button
+          onClick={() => setClockMode(clockMode === 'digital' ? 'analog' : 'digital')}
+          style={{
+            padding: '8px 16px', background: 'rgba(255, 255, 255, 0.12)',
+            color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
+            borderRadius: '9999px', fontSize: '12px', fontWeight: '800',
+            cursor: 'pointer', backdropFilter: 'blur(20px)'
+          }}
+        >
+          {clockMode === 'digital' ? '🕰️ Analog View' : '📱 Digital View'}
+        </button>
+
+        <button
+          onClick={() => setUse24Hour(!use24Hour)}
+          style={{
+            padding: '8px 16px', background: 'rgba(255, 255, 255, 0.12)',
+            color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
+            borderRadius: '9999px', fontSize: '12px', fontWeight: '800',
+            cursor: 'pointer', backdropFilter: 'blur(20px)'
+          }}
+        >
+          {use24Hour ? '24-Hour' : '12-Hour'}
+        </button>
+
+        <button
+          onClick={handleExitFullscreenClock}
+          style={{
+            padding: '8px 18px', background: 'rgba(255, 255, 255, 0.15)',
+            color: 'white', border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '9999px', fontSize: '13px', fontWeight: '800',
+            cursor: 'pointer', backdropFilter: 'blur(20px)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)', transition: 'all 0.15s ease'
+          }}
+        >
+          ✕ Exit Fullscreen
+        </button>
+      </div>
 
       <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ userSelect: 'none' }}>
-          <div className="iphone-time-text" style={{
-            fontSize: '185px', fontWeight: '900', color: '#ffffff',
-            textShadow: '0 0 80px rgba(56, 189, 248, 0.9), 0 0 30px rgba(56, 189, 248, 0.6), 0 10px 40px rgba(0,0,0,0.7)',
-            lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center'
-          }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-            <span style={{
-              display: 'inline-block', width: '110px', textAlign: 'left',
-              fontSize: '64px', fontWeight: '800', color: '#38bdf8',
-              fontVariantNumeric: 'tabular-nums', marginLeft: '10px'
-            }}>:{formatSS(now)}</span>
-            <span style={{
-              display: 'inline-block', width: '80px', textAlign: 'left',
-              fontSize: '48px', fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
-            }}>{formatAMPM(now)}</span>
-          </div>
+        {clockMode === 'digital' ? (
+          <div style={{ userSelect: 'none' }}>
+            <div className="iphone-time-text" style={{
+              fontSize: '185px', fontWeight: '900', color: '#ffffff',
+              textShadow: '0 0 80px rgba(56, 189, 248, 0.9), 0 0 30px rgba(56, 189, 248, 0.6), 0 10px 40px rgba(0,0,0,0.7)',
+              lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center'
+            }}>
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now, use24Hour)}</span>
+              <span style={{
+                display: 'inline-block', width: '110px', textAlign: 'left',
+                fontSize: '64px', fontWeight: '800', color: '#38bdf8',
+                fontVariantNumeric: 'tabular-nums', marginLeft: '10px'
+              }}>:{formatSS(now)}</span>
+              {!use24Hour && (
+                <span style={{
+                  display: 'inline-block', width: '80px', textAlign: 'left',
+                  fontSize: '48px', fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
+                }}>{formatAMPM(now)}</span>
+              )}
+            </div>
 
-          <div style={{
-            fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
-            marginTop: '20px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
-          }}>
-            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            <div style={{
+              fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
+              marginTop: '20px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
+            }}>
+              {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <AnalogClockView date={now} size={320} isGlow={true} />
+            <div style={{
+              fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
+              marginTop: '24px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
+            }}>
+              {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            </div>
+          </div>
+        )}
 
         {progress.active && (
           <div style={{
@@ -842,11 +1496,18 @@ function ConversionToolbar() {
     };
   }, [stylePanelOpen]);
 
-  // 3-Stage Clock Widget States
+  // Viewboard Clock Suite States
   const [clockStage, setClockStage] = useState('badge');
   const [clockMode, setClockMode] = useState('digital');
+  const [use24Hour, setUse24Hour] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [examStartTime, setExamStartTime] = useState('09:00');
   const [examEndTime, setExamEndTime] = useState('12:00');
+  const [examActive, setExamActive] = useState(true);
+  const [timePos, setTimePos] = useState(() => ({
+    x: Math.max(16, window.innerWidth - 350),
+    y: 70
+  }));
 
   const handleEnterFullscreenClock = () => {
     setClockStage('fullscreen');
@@ -944,18 +1605,6 @@ function ConversionToolbar() {
   const [takeawayMenuPos, setTakeawayMenuPos] = useState({ top: 60, left: 16 });
   const [colorMenuPos, setColorMenuPos] = useState({ top: 60, left: 16 });
 
-  // Draggable Time Badge & Exam Timer States
-  const [timePos, setTimePos] = useState({ x: window.innerWidth - 170, y: 16 });
-  const [isDraggingTime, setIsDraggingTime] = useState(false);
-  const dragStartPos = useRef({ x: 0, y: 0 });
-  const elementStartPos = useRef({ x: 0, y: 0 });
-  const dragDistanceRef = useRef(0);
-
-  const [examActive, setExamActive] = useState(false);
-  const [isTimeExpanded, setIsTimeExpanded] = useState(false);
-
-
-
   const handleApplyExamSchedule = () => {
     if (!examStartTime || !examEndTime) {
       showNotification("Please select both Exam Start and Ending times.");
@@ -964,51 +1613,6 @@ function ConversionToolbar() {
     setExamActive(true);
     showNotification("✅ Exam schedule updated!");
   };
-
-  const handleTimeMouseDown = (e) => {
-    setIsDraggingTime(true);
-    dragDistanceRef.current = 0;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    dragStartPos.current = { x: clientX, y: clientY };
-    elementStartPos.current = { ...timePos };
-  };
-
-  useEffect(() => {
-    const handlePointerMove = (e) => {
-      if (!isDraggingTime) return;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const deltaX = clientX - dragStartPos.current.x;
-      const deltaY = clientY - dragStartPos.current.y;
-
-      dragDistanceRef.current = Math.hypot(deltaX, deltaY);
-
-      const newX = Math.max(10, Math.min(window.innerWidth - 140, elementStartPos.current.x + deltaX));
-      const newY = Math.max(10, Math.min(window.innerHeight - 50, elementStartPos.current.y + deltaY));
-      setTimePos({ x: newX, y: newY });
-    };
-
-    const handlePointerUp = () => {
-      setIsDraggingTime(false);
-      if (dragDistanceRef.current < 6) {
-        setClockStage('exam_panel');
-      }
-    };
-
-    if (isDraggingTime) {
-      window.addEventListener('mousemove', handlePointerMove);
-      window.addEventListener('mouseup', handlePointerUp);
-      window.addEventListener('touchmove', handlePointerMove);
-      window.addEventListener('touchend', handlePointerUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handlePointerMove);
-      window.removeEventListener('mouseup', handlePointerUp);
-      window.removeEventListener('touchmove', handlePointerMove);
-      window.removeEventListener('touchend', handlePointerUp);
-    };
-  }, [isDraggingTime]);
 
   const handleToggleUserDropdown = () => {
     if (!userDropdownOpen && accountBtnRef.current) {
@@ -2551,7 +3155,20 @@ function ConversionToolbar() {
           </button>
 
           {/* Integrated Clock Badge */}
-          <LiveClockBadge onClick={() => setClockStage('exam_panel')} />
+          <LiveClockBadge
+            onOpenFloating={() => setClockStage('floating')}
+            onOpenExamPanel={() => setClockStage('exam_panel')}
+            onOpenFullscreen={handleEnterFullscreenClock}
+            clockMode={clockMode}
+            setClockMode={setClockMode}
+            use24Hour={use24Hour}
+            setUse24Hour={setUse24Hour}
+            soundEnabled={soundEnabled}
+            setSoundEnabled={setSoundEnabled}
+            examActive={examActive}
+            examStartTime={examStartTime}
+            examEndTime={examEndTime}
+          />
         </div>
       </div>
 
@@ -2895,6 +3512,29 @@ function ConversionToolbar() {
         </div>
       )}
 
+      {/* 1. STAGE 1 (FLOATING): FLOATING DRAGGABLE VIEWBOARD CANVAS CLOCK WIDGET */}
+      {clockStage === 'floating' && (
+        <FloatingClockWidget
+          timePos={timePos}
+          setTimePos={setTimePos}
+          onClose={() => setClockStage('badge')}
+          onOpenExamPanel={() => setClockStage('exam_panel')}
+          onOpenFullscreen={handleEnterFullscreenClock}
+          clockMode={clockMode}
+          setClockMode={setClockMode}
+          use24Hour={use24Hour}
+          setUse24Hour={setUse24Hour}
+          soundEnabled={soundEnabled}
+          examStartTime={examStartTime}
+          setExamStartTime={setExamStartTime}
+          examEndTime={examEndTime}
+          setExamEndTime={setExamEndTime}
+          examActive={examActive}
+          setExamActive={setExamActive}
+          handleApplyExamSchedule={handleApplyExamSchedule}
+        />
+      )}
+
       {/* 2. STAGE 2: AESTHETIC CLOCK & EXAM TIMER DIALOG MODAL */}
       {clockStage === 'exam_panel' && (
         <ExamTimerModalContent
@@ -2905,6 +3545,12 @@ function ConversionToolbar() {
           examActive={examActive}
           handleApplyExamSchedule={handleApplyExamSchedule}
           handleEnterFullscreenClock={handleEnterFullscreenClock}
+          clockMode={clockMode}
+          setClockMode={setClockMode}
+          use24Hour={use24Hour}
+          setUse24Hour={setUse24Hour}
+          soundEnabled={soundEnabled}
+          setSoundEnabled={setSoundEnabled}
           onClose={() => setClockStage('badge')}
         />
       )}
@@ -2916,6 +3562,11 @@ function ConversionToolbar() {
           examEndTime={examEndTime}
           examActive={examActive}
           handleExitFullscreenClock={handleExitFullscreenClock}
+          clockMode={clockMode}
+          setClockMode={setClockMode}
+          use24Hour={use24Hour}
+          setUse24Hour={setUse24Hour}
+          soundEnabled={soundEnabled}
         />
       )}
 
