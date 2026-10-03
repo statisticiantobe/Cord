@@ -75,6 +75,8 @@ button:active {
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
+  contain: strict;
+  transform: translateZ(0);
 }
 
 .ios-blob-1 {
@@ -83,8 +85,7 @@ button:active {
   left: -30%;
   width: 150%;
   height: 150%;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(99, 102, 241, 0.35) 45%, transparent 70%);
-  filter: blur(60px);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.35) 0%, rgba(99, 102, 241, 0.25) 45%, transparent 70%);
   animation: iosGlowBlob1 14s ease-in-out infinite;
   will-change: transform;
   transform: translateZ(0);
@@ -96,8 +97,7 @@ button:active {
   right: -30%;
   width: 150%;
   height: 150%;
-  background: radial-gradient(circle, rgba(147, 51, 234, 0.4) 0%, rgba(59, 130, 246, 0.35) 50%, transparent 75%);
-  filter: blur(65px);
+  background: radial-gradient(circle, rgba(147, 51, 234, 0.3) 0%, rgba(59, 130, 246, 0.25) 50%, transparent 75%);
   animation: iosGlowBlob2 16s ease-in-out infinite;
   will-change: transform;
   transform: translateZ(0);
@@ -126,6 +126,8 @@ button:active {
   letter-spacing: -1.5px;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  contain: layout style;
+  transform: translateZ(0);
 }
 
 .movable-clock-widget {

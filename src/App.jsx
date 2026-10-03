@@ -360,6 +360,41 @@ function calculateExamProgress(nowDate, examActive, examStartTime, examEndTime) 
   };
 }
 
+const AmbientWallpaperBg = React.memo(function AmbientWallpaperBg() {
+  return (
+    <div className="ios-live-wallpaper-bg">
+      <div className="ios-blob-1"></div>
+      <div className="ios-blob-2"></div>
+    </div>
+  );
+});
+
+const SmoothTimeDisplay = React.memo(function SmoothTimeDisplay({ now, fontSize = '185px', ssSize = '64px', ampmSize = '48px' }) {
+  const timeHHMM = formatHHMM(now);
+  const timeSS = formatSS(now);
+  const timeAMPM = formatAMPM(now);
+
+  return (
+    <div className="iphone-time-text" style={{
+      fontSize: fontSize, fontWeight: '900', color: '#ffffff',
+      filter: 'drop-shadow(0 0 30px rgba(56, 189, 248, 0.65)) drop-shadow(0 10px 25px rgba(0,0,0,0.8))',
+      lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center',
+      contain: 'layout style', transform: 'translateZ(0)'
+    }}>
+      <span style={{ fontVariantNumeric: 'tabular-nums', display: 'inline-block', textAlign: 'right' }}>{timeHHMM}</span>
+      <span style={{
+        display: 'inline-block', width: fontSize === '185px' ? '125px' : '40px', textAlign: 'left',
+        fontSize: ssSize, fontWeight: '800', color: '#38bdf8',
+        fontVariantNumeric: 'tabular-nums', marginLeft: '6px'
+      }}>:{timeSS}</span>
+      <span style={{
+        display: 'inline-block', width: fontSize === '185px' ? '85px' : '36px', textAlign: 'left',
+        fontSize: ampmSize, fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
+      }}>{timeAMPM}</span>
+    </div>
+  );
+});
+
 const LiveClockBadge = React.memo(function LiveClockBadge({ onClick }) {
   const [time, setTime] = useState(new Date());
 
@@ -417,10 +452,7 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
       boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 35px rgba(56, 189, 248, 0.2)',
       padding: '24px', color: 'white', overflow: 'hidden'
     }}>
-      <div className="ios-live-wallpaper-bg">
-        <div className="ios-blob-1"></div>
-        <div className="ios-blob-2"></div>
-      </div>
+      <AmbientWallpaperBg />
 
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -451,11 +483,7 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
         </div>
 
         <div style={{ textAlign: 'center', margin: '14px 0 20px' }}>
-          <div className="iphone-time-text" style={{ fontSize: '54px', fontWeight: '900', color: '#ffffff', textShadow: '0 0 30px rgba(56, 189, 248, 0.7), 0 4px 16px rgba(0,0,0,0.5)', lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-            <span style={{ display: 'inline-block', width: '38px', textAlign: 'left', fontSize: '22px', fontWeight: '800', color: '#38bdf8', fontVariantNumeric: 'tabular-nums', marginLeft: '4px' }}>:{formatSS(now)}</span>
-            <span style={{ display: 'inline-block', width: '32px', textAlign: 'left', fontSize: '18px', fontWeight: '800', color: '#93c5fd', marginLeft: '4px' }}>{formatAMPM(now)}</span>
-          </div>
+          <SmoothTimeDisplay now={now} fontSize="54px" ssSize="22px" ampmSize="18px" />
           <div style={{ fontSize: '13px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.85)', marginTop: '8px', letterSpacing: '0.5px' }}>
             {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
@@ -536,7 +564,8 @@ const ExamTimerModalContent = React.memo(function ExamTimerModalContent({
                 background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
                 borderRadius: '9999px',
                 boxShadow: `0 0 12px ${progress.color}`,
-                transition: 'width 0.4s ease, background 0.4s ease'
+                transition: 'width 1s linear, background 0.4s ease',
+                willChange: 'width'
               }} />
             </div>
 
@@ -563,6 +592,16 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        handleExitFullscreenClock();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleExitFullscreenClock]);
+
   const progress = calculateExamProgress(now, examActive, examStartTime, examEndTime);
 
   return (
@@ -570,49 +609,33 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
       position: 'fixed', inset: 0, zIndex: 99999999,
       background: '#070b14', color: 'white',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '24px', userSelect: 'none', overflow: 'hidden'
+      padding: '24px', userSelect: 'none', overflow: 'hidden',
+      isolation: 'isolate', transform: 'translateZ(0)'
     }}>
-      <div className="ios-live-wallpaper-bg">
-        <div className="ios-blob-1" style={{ filter: 'blur(90px)', opacity: 0.85 }} />
-        <div className="ios-blob-2" style={{ filter: 'blur(100px)', opacity: 0.75 }} />
-      </div>
+      <AmbientWallpaperBg />
 
       <button
         onClick={handleExitFullscreenClock}
         style={{
           position: 'fixed', top: '24px', right: '24px', zIndex: 10001,
-          padding: '10px 20px', background: 'rgba(255, 255, 255, 0.12)',
+          padding: '10px 22px', background: 'rgba(255, 255, 255, 0.12)',
           color: 'white', border: '1px solid rgba(255, 255, 255, 0.25)',
-          borderRadius: '9999px', fontSize: '13px', fontWeight: '800',
-          cursor: 'pointer', backdropFilter: 'blur(20px)',
+          borderRadius: '9999px', fontSize: '13.5px', fontWeight: '800',
+          cursor: 'pointer', backdropFilter: 'blur(16px)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)', transition: 'all 0.15s ease'
         }}
+        title="Exit Fullscreen (Esc)"
       >
         ✕ Exit Fullscreen
       </button>
 
       <div style={{ position: 'relative', zIndex: 10, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <div style={{ userSelect: 'none' }}>
-          <div className="iphone-time-text" style={{
-            fontSize: '185px', fontWeight: '900', color: '#ffffff',
-            textShadow: '0 0 80px rgba(56, 189, 248, 0.9), 0 0 30px rgba(56, 189, 248, 0.6), 0 10px 40px rgba(0,0,0,0.7)',
-            lineHeight: 1, display: 'flex', alignItems: 'baseline', justifyContent: 'center'
-          }}>
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatHHMM(now)}</span>
-            <span style={{
-              display: 'inline-block', width: '110px', textAlign: 'left',
-              fontSize: '64px', fontWeight: '800', color: '#38bdf8',
-              fontVariantNumeric: 'tabular-nums', marginLeft: '10px'
-            }}>:{formatSS(now)}</span>
-            <span style={{
-              display: 'inline-block', width: '80px', textAlign: 'left',
-              fontSize: '48px', fontWeight: '800', color: '#93c5fd', marginLeft: '6px'
-            }}>{formatAMPM(now)}</span>
-          </div>
+          <SmoothTimeDisplay now={now} fontSize="185px" ssSize="64px" ampmSize="48px" />
 
           <div style={{
             fontSize: '32px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)',
-            marginTop: '20px', letterSpacing: '0.5px', textShadow: '0 2px 12px rgba(0,0,0,0.6)'
+            marginTop: '20px', letterSpacing: '0.5px', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.6))'
           }}>
             {now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
@@ -621,14 +644,14 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
         {progress.active && (
           <div style={{
             marginTop: '36px', width: '480px', maxWidth: '85vw',
-            background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(20px)',
+            background: 'rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(16px)',
             padding: '20px 24px', borderRadius: '24px',
             border: '1px solid rgba(255, 255, 255, 0.18)',
             boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
           }}>
             {progress.status === 'completed' ? (
               <div style={{
-                background: 'rgba(34, 197, 94, 0.15)', backdropFilter: 'blur(30px)',
+                background: 'rgba(34, 197, 94, 0.15)', backdropFilter: 'blur(20px)',
                 padding: '20px 24px', borderRadius: '24px',
                 border: '2px solid #22c55e', boxShadow: '0 0 35px rgba(34, 197, 94, 0.4)',
                 textAlign: 'center'
@@ -650,7 +673,8 @@ const FullscreenClockView = React.memo(function FullscreenClockView({
                     background: progress.color === '#ef4444' ? 'linear-gradient(90deg, #f97316, #ef4444)' : progress.color === '#f97316' ? 'linear-gradient(90deg, #eab308, #f97316)' : progress.color === '#eab308' ? 'linear-gradient(90deg, #84cc16, #eab308)' : 'linear-gradient(90deg, #22c55e, #4ade80)',
                     borderRadius: '9999px',
                     boxShadow: `0 0 16px ${progress.color}`,
-                    transition: 'width 0.4s ease, background 0.4s ease'
+                    transition: 'width 1s linear, background 0.4s ease',
+                    willChange: 'width'
                   }} />
                 </div>
 
