@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Peer } from 'peerjs';
+import { Analytics } from '@vercel/analytics/react';
 
 export default function MobileUpload() {
   const params = new URLSearchParams(window.location.search);
@@ -158,14 +159,15 @@ export default function MobileUpload() {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'radial-gradient(circle at top, #1e293b 0%, #0f172a 100%)',
-      color: 'white', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      zIndex: 10000, overflowY: 'auto'
-    }}>
+    <>
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'radial-gradient(circle at top, #1e293b 0%, #0f172a 100%)',
+        color: 'white', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        zIndex: 10000, overflowY: 'auto'
+      }}>
       <div style={{ background: 'rgba(30, 41, 59, 0.9)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '24px', padding: '24px', width: '100%', maxWidth: '380px', textAlign: 'center', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
         
         <div style={{ fontSize: '44px', marginBottom: '4px' }}>📱</div>
@@ -257,5 +259,7 @@ export default function MobileUpload() {
         )}
       </div>
     </div>
+    <Analytics />
+    </>
   );
 }
