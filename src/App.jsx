@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { Peer } from 'peerjs';
 import html2canvas from 'html2canvas';
+import { Analytics } from '@vercel/analytics/react';
 
 const myScriptConfig = {
   applicationKey: 'f6d5e18e-f44f-4335-a2b4-e3e9f733a746',
@@ -3141,7 +3142,12 @@ export default function ViewBoard() {
   const isMobileCam = window.location.search.includes('mobileCam=true');
 
   if (isMobileCam) {
-    return <MobilePhotoUploadView />;
+    return (
+      <>
+        <MobilePhotoUploadView />
+        <Analytics />
+      </>
+    );
   }
 
   return (
@@ -3149,6 +3155,7 @@ export default function ViewBoard() {
       <Tldraw>
         <ConversionToolbar />
       </Tldraw>
+      <Analytics />
     </div>
   );
 }
